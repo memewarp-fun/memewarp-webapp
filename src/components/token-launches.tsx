@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { TokenCard } from "@/components/token-card";
 import Link from "next/link";
@@ -78,6 +81,24 @@ const mockTokens = [
 ];
 
 export function TokenLaunches() {
+  const [tokens, setTokens] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/tokens')
+      .then(res => res.json())
+      .then(data => {
+        setTokens(data.slice(0, 6));
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch tokens:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  const displayTokens = tokens.length > 0 ? tokens : mockTokens;
+
   return (
     <section className="py-16 bg-black">
       <div className="container mx-auto px-6">
@@ -91,21 +112,48 @@ export function TokenLaunches() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mockTokens.map((token) => (
-            <TokenCard
-              key={token.id}
-              id={token.id}
-              name={token.name}
-              symbol={token.symbol}
-              description={token.description}
-              mcap={token.mcap}
-              change24h={token.change24h}
-              launched={token.launched}
-              creator={token.creator}
-              creatorAddress={token.creatorAddress}
-              image={token.image}
-            />
-          ))}
+          {loading && tokens.length === 0 ? (
+            <>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 animate-pulse">
+                  <div className="flex gap-4">
+                    <div className="w-20 h-20 bg-zinc-800 rounded-lg" />
+                    <div className="flex-1">
+                      <div className="h-4 bg-zinc-800 rounded w-3/4 mb-2" />
+                      <div className="h-3 bg-zinc-800 rounded w-1/2 mb-3" />
+                      <div className="h-3 bg-zinc-800 rounded w-full mb-2" />
+                      <div className="h-4 bg-zinc-800 rounded w-1/4" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            displayTokens.map((token) => {
+            const timeSinceLaunch = token.createdAt
+              ? `${Math.floor((Date.now() - new Date(token.createdAt).getTime()) / (1000 * 60))}m ago`
+              : token.launched;
+
+            const change24h = token.priceUSD && token.flowPriceUSD
+              ? ((token.flowPriceUSD > token.hederaPriceUSD ? '+' : '-') + Math.abs(((token.flowPriceUSD - token.hederaPriceUSD) / token.priceUSD * 100)).toFixed(2) + '%')
+              : token.change24h || '+0.00%';
+
+            return (
+              <TokenCard
+                key={token.id || token.symbol}
+                id={token.id || token.symbol}
+                name={token.name}
+                symbol={token.symbol || token.id}
+                description={token.description || "A new meme token on dual chains"}
+                mcap={token.marketCapUSD ? `$${(token.marketCapUSD / 1000).toFixed(1)}K` : token.mcap || "$0"}
+                change24h={change24h}
+                launched={timeSinceLaunch}
+                creator={token.creator?.slice(-6) || token.creator}
+                creatorAddress={token.creator || token.creatorAddress}
+                image={token.imageUrl || token.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${token.symbol}`}
+              />
+            );
+          }))}
         </div>
       </div>
     </section>
