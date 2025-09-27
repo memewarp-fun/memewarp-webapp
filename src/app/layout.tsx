@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} antialiased`}
+        className={`${spaceGrotesk.variable} font-space-grotesk antialiased`}
       >
         {children}
       </body>
