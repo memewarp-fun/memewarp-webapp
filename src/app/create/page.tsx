@@ -9,14 +9,12 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useTokenFactory } from "@/hooks/useTokenFactory";
 
 export default function CreateTokenPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const flowFactory = useTokenFactory('flow');
-  const hederaFactory = useTokenFactory('hedera');
   const [isCreating, setIsCreating] = useState(false);
+  const [deploymentStatus, setDeploymentStatus] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     symbol: "",
@@ -33,47 +31,61 @@ export default function CreateTokenPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
+    setDeploymentStatus("Initializing...");
 
     try {
       const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${formData.symbol}`;
 
-      const [flowResult, hederaResult] = await Promise.all([
-        flowFactory.createToken({
-          name: formData.name,
-          symbol: formData.symbol,
-          description: formData.description,
-          imageUrl,
-          maxSupply: "1000000"
-        }),
-        hederaFactory.createToken({
-          name: formData.name,
-          symbol: formData.symbol,
-          description: formData.description,
-          imageUrl,
-          maxSupply: "1000000"
-        })
-      ]);
-
-      await fetch('/api/tokens', {
+      const response = await fetch('/api/tokens/create-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: formData.symbol,
           name: formData.name,
+          symbol: formData.symbol,
           description: formData.description,
           imageUrl,
-          creator: address,
-          flowAddress: flowResult.tokenAddress,
-          hederaAddress: hederaResult.tokenAddress,
-          flowCurve: flowResult.bondingCurve,
-          hederaCurve: hederaResult.bondingCurve
+          creator: address
         })
       });
 
-      router.push(`/token/${formData.symbol}`);
-    } catch (error) {
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
+
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.status === 'completed') {
+                setDeploymentStatus("Success! Redirecting...");
+                setTimeout(() => {
+                  router.push(`/token/${formData.symbol}`);
+                }, 1000);
+              } else if (data.status === 'error') {
+                throw new Error(data.message);
+              } else {
+                setDeploymentStatus(data.message);
+              }
+            } catch (e) {
+              console.error('Parse error:', e);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
       console.error('Token creation failed:', error);
-      setIsCreating(false);
+      setDeploymentStatus(`Error: ${error.message}`);
+      setTimeout(() => {
+        setIsCreating(false);
+        setDeploymentStatus("");
+      }, 3000);
     }
   };
 
@@ -199,7 +211,15 @@ export default function CreateTokenPage() {
                   disabled={isCreating || !formData.name || !formData.symbol}
                 >
                   {isCreating ? (
-                    <>Creating on both chains...</>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                        <span>Deploying...</span>
+                      </div>
+                      {deploymentStatus && (
+                        <span className="text-sm opacity-80">{deploymentStatus}</span>
+                      )}
+                    </div>
                   ) : (
                     <>
                       <Rocket className="w-5 h-5 mr-2" />

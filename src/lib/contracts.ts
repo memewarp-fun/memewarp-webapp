@@ -2,13 +2,13 @@ export const CONTRACTS = {
   flow: {
     chainId: 747,
     rpc: "https://testnet.evm.nodes.onflow.org",
-    factory: "0x1234567890123456789012345678901234567890",
+    factory: process.env.NEXT_PUBLIC_FLOW_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000",
     bondingCurve: "0x2345678901234567890123456789012345678901"
   },
   hedera: {
     chainId: 295,
     rpc: "https://testnet.hashio.io/api",
-    factory: "0x3456789012345678901234567890123456789012",
+    factory: process.env.NEXT_PUBLIC_HEDERA_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000",
     bondingCurve: "0x4567890123456789012345678901234567890123"
   }
 }
