@@ -3,7 +3,7 @@ import { GridAnimation } from "@/components/grid-animation";
 
 export function Hero() {
   return (
-    <section className="relative flex-1 flex items-center justify-center overflow-hidden">
+    <section className="relative h-full flex items-center justify-center overflow-hidden">
       <div className="container mx-auto px-6 text-center relative z-10">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold font-space-grotesk mb-6 bg-gradient-to-r from-primary via-accent-foreground to-primary bg-clip-text text-transparent">
