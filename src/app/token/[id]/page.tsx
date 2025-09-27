@@ -8,6 +8,7 @@ import { TrendingUp, TrendingDown, ExternalLink, Copy } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { PriceChart } from "@/components/price-chart";
 
 // Mock chart data
 const generateChartData = () => {
@@ -49,7 +50,7 @@ export default function TokenDetailsPage() {
   const priceRange = maxPrice - minPrice;
 
   // Mock livestream data - sometimes a token has active livestream
-  const hasLivestream = Math.random() > 0.5; // 50% chance for demo
+  const hasLivestream = false; // Math.random() > 0.5; // 50% chance for demo - DISABLED
   const livestreamData = {
     streamer: "CryptoMemer",
     viewers: 1248,
@@ -158,58 +159,11 @@ export default function TokenDetailsPage() {
             </div>
 
             {/* Chart */}
-            <div className="bg-zinc-900 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">Price Chart</h2>
-                <div className="flex gap-2">
-                  {["1m", "5m", "1h", "24h"].map(tf => (
-                    <button
-                      key={tf}
-                      onClick={() => setTimeframe(tf)}
-                      className={`px-3 py-1 rounded text-sm ${
-                        timeframe === tf ? "bg-green-500 text-black" : "bg-zinc-800 text-gray-400"
-                      }`}
-                    >
-                      {tf}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Simple Chart Visualization */}
-              <div className="h-64 relative">
-                <svg className="w-full h-full">
-                  <polyline
-                    fill="none"
-                    stroke="rgb(34, 197, 94)"
-                    strokeWidth="2"
-                    points={chartData.map((d, i) => {
-                      const x = (i / (chartData.length - 1)) * 100;
-                      const y = 100 - ((d.price - minPrice) / priceRange) * 100;
-                      return `${x}%,${y}%`;
-                    }).join(" ")}
-                  />
-                  <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="rgb(34, 197, 94)" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="rgb(34, 197, 94)" stopOpacity="0" />
-                  </linearGradient>
-                  <polyline
-                    fill="url(#gradient)"
-                    points={`0%,100% ${chartData.map((d, i) => {
-                      const x = (i / (chartData.length - 1)) * 100;
-                      const y = 100 - ((d.price - minPrice) / priceRange) * 100;
-                      return `${x}%,${y}%`;
-                    }).join(" ")} 100%,100%`}
-                  />
-                </svg>
-              </div>
-
-              <div className="flex justify-between mt-4 text-sm text-gray-400">
-                <span>${minPrice.toFixed(4)}</span>
-                <span>Current: ${chartData[chartData.length - 1].price.toFixed(4)}</span>
-                <span>${maxPrice.toFixed(4)}</span>
-              </div>
-            </div>
+            <PriceChart
+              tokenSymbol="SILENTHILL"
+              currentPrice={0.0145}
+              change24h={3.81}
+            />
 
             {/* Comments Section */}
             <div className="bg-zinc-900 rounded-2xl p-6">

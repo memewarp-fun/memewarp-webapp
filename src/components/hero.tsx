@@ -40,9 +40,9 @@ export function Hero() {
                 Launch a Token
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6">
+            {/* <Button size="lg" variant="outline" className="text-lg px-8 py-6">
               Start Streaming
-            </Button>
+            </Button> */}
           </div>
         </div>
       </div>
