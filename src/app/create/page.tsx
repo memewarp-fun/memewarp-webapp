@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, Rocket, AlertCircle, Wallet } from "lucide-react";
+import { Upload, Rocket, AlertCircle, Wallet, Check, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -15,6 +15,7 @@ export default function CreateTokenPage() {
   const { address, isConnected } = useAccount();
   const [isCreating, setIsCreating] = useState(false);
   const [deploymentStatus, setDeploymentStatus] = useState<string>("");
+  const [deploymentSteps, setDeploymentSteps] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     symbol: "",
@@ -30,11 +31,20 @@ export default function CreateTokenPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!address) {
+      alert("Please connect your wallet first!");
+      return;
+    }
+
     setIsCreating(true);
     setDeploymentStatus("Initializing...");
+    setDeploymentSteps([]);
 
     try {
       const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${formData.symbol}`;
+
+      console.log('Creating token with creator address:', address);
 
       const response = await fetch('/api/tokens/create-stream', {
         method: 'POST',
@@ -65,13 +75,62 @@ export default function CreateTokenPage() {
 
               if (data.status === 'completed') {
                 setDeploymentStatus("Success! Redirecting...");
+                setDeploymentSteps(prev => [...prev, {
+                  message: "Token creation completed!",
+                  status: 'completed',
+                  token: data.token
+                }]);
                 setTimeout(() => {
                   router.push(`/token/${formData.symbol}`);
-                }, 1000);
+                }, 2000);
               } else if (data.status === 'error') {
+                setDeploymentSteps(prev => [...prev, {
+                  message: data.message,
+                  status: 'error'
+                }]);
                 throw new Error(data.message);
               } else {
                 setDeploymentStatus(data.message);
+
+                if (data.status === 'validating') {
+                  setDeploymentSteps([{ message: "Validating token parameters", status: 'completed' }]);
+                } else if (data.status === 'connecting') {
+                  setDeploymentSteps(prev => [...prev, { message: "Connecting to blockchains", status: 'completed' }]);
+                } else if (data.status === 'deploying_flow') {
+                  setDeploymentSteps(prev => [...prev, { message: "Deploying on Flow blockchain", status: 'pending' }]);
+                } else if (data.status === 'confirming_flow' && data.flowTx) {
+                  setDeploymentSteps(prev => {
+                    const updated = [...prev];
+                    const flowIndex = updated.findIndex(s => s.message === "Deploying on Flow blockchain");
+                    if (flowIndex >= 0) {
+                      updated[flowIndex] = {
+                        message: "Flow deployment confirmed",
+                        status: 'completed',
+                        txHash: data.flowTx,
+                        chain: 'flow'
+                      };
+                    }
+                    return updated;
+                  });
+                } else if (data.status === 'deploying_hedera') {
+                  setDeploymentSteps(prev => [...prev, { message: "Deploying on Hedera blockchain", status: 'pending' }]);
+                } else if (data.status === 'confirming_hedera' && data.hederaTx) {
+                  setDeploymentSteps(prev => {
+                    const updated = [...prev];
+                    const hederaIndex = updated.findIndex(s => s.message === "Deploying on Hedera blockchain");
+                    if (hederaIndex >= 0) {
+                      updated[hederaIndex] = {
+                        message: "Hedera deployment confirmed",
+                        status: 'completed',
+                        txHash: data.hederaTx,
+                        chain: 'hedera'
+                      };
+                    }
+                    return updated;
+                  });
+                } else if (data.status === 'storing') {
+                  setDeploymentSteps(prev => [...prev, { message: "Storing token data", status: 'completed' }]);
+                }
               }
             } catch (e) {
               console.error('Parse error:', e);
@@ -129,7 +188,6 @@ export default function CreateTokenPage() {
                 <form onSubmit={handleSubmit}>
               <Card className="p-6">
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left Column */}
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Token Name *</label>
@@ -167,7 +225,6 @@ export default function CreateTokenPage() {
                     </div>
                   </div>
 
-                  {/* Right Column */}
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Token Image</label>
@@ -189,18 +246,6 @@ export default function CreateTokenPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <Card className="p-4 bg-blue-500/5 border-blue-500/20">
-                        <img src="/flow-logo.png" alt="Flow" className="w-8 h-8 mb-2" />
-                        <p className="text-sm font-medium">Flow</p>
-                        <p className="text-xs text-muted-foreground">50% supply</p>
-                      </Card>
-                      <Card className="p-4 bg-purple-500/5 border-purple-500/20">
-                        <img src="/hedera-logo.png" alt="Hedera" className="w-8 h-8 mb-2" />
-                        <p className="text-sm font-medium">Hedera</p>
-                        <p className="text-xs text-muted-foreground">50% supply</p>
-                      </Card>
-                    </div>
                   </div>
                 </div>
 
@@ -229,6 +274,117 @@ export default function CreateTokenPage() {
                 </Button>
               </Card>
             </form>
+
+            {isCreating && deploymentSteps.length > 0 && (
+              <Card className="p-6 bg-zinc-900/50 border-zinc-800">
+                <h3 className="text-lg font-semibold mb-4">Deployment Progress</h3>
+                <div className="space-y-3">
+                  {deploymentSteps.map((step, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      {step.status === 'completed' ? (
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Check className="w-3 h-3 text-black" />
+                        </div>
+                      ) : step.status === 'error' ? (
+                        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <AlertCircle className="w-3 h-3 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border-2 border-zinc-600 flex-shrink-0 mt-0.5 animate-pulse" />
+                      )}
+
+                      <div className="flex-1">
+                        <p className={`text-sm ${
+                          step.status === 'completed' ? 'text-green-500' :
+                          step.status === 'error' ? 'text-red-500' :
+                          'text-zinc-400'
+                        }`}>
+                          {step.message}
+                        </p>
+
+                        {step.txHash && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <a
+                              href={
+                                step.chain === 'flow'
+                                  ? `https://evm.flowscan.io/tx/${step.txHash}`
+                                  : `https://hashscan.io/mainnet/transaction/${step.txHash}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                            >
+                              View transaction <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        )}
+
+                        {step.token && (
+                          <div className="mt-2 grid grid-cols-2 gap-4 p-3 bg-zinc-800/50 rounded-lg">
+                            {step.token.flowAddress && (
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Flow Contract</p>
+                                <a
+                                  href={`https://evm.flowscan.io/address/${step.token.flowAddress}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                                >
+                                  {step.token.flowAddress.slice(0, 6)}...{step.token.flowAddress.slice(-4)}
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            )}
+                            {step.token.hederaAddress && (
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Hedera Contract</p>
+                                <a
+                                  href={`https://hashscan.io/mainnet/contract/${step.token.hederaAddress}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                                >
+                                  {step.token.hederaAddress.slice(0, 6)}...{step.token.hederaAddress.slice(-4)}
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            )}
+                            {step.token.flowCurve && (
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Flow Bonding Curve</p>
+                                <a
+                                  href={`https://evm.flowscan.io/address/${step.token.flowCurve}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                                >
+                                  {step.token.flowCurve.slice(0, 6)}...{step.token.flowCurve.slice(-4)}
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            )}
+                            {step.token.hederaCurve && (
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Hedera Bonding Curve</p>
+                                <a
+                                  href={`https://hashscan.io/mainnet/contract/${step.token.hederaCurve}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                                >
+                                  {step.token.hederaCurve.slice(0, 6)}...{step.token.hederaCurve.slice(-4)}
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
               </>
             )}
           </div>

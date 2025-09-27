@@ -12,8 +12,8 @@ export async function POST(req: Request) {
     for (const token of tokens) {
       if (!token.flowCurve || !token.hederaCurve) continue;
 
-      const flowProvider = new ethers.providers.JsonRpcProvider(CONTRACTS.flow.rpc);
-      const hederaProvider = new ethers.providers.JsonRpcProvider(CONTRACTS.hedera.rpc);
+      const flowProvider = new ethers.providers.JsonRpcProvider(CONTRACTS.flow.rpc, { chainId: 747, name: 'flow' });
+      const hederaProvider = new ethers.providers.JsonRpcProvider(CONTRACTS.hedera.rpc, { chainId: 295, name: 'hedera' });
 
       const flowCurve = new ethers.Contract(token.flowCurve, BONDING_CURVE_ABI, flowProvider);
       const hederaCurve = new ethers.Contract(token.hederaCurve, BONDING_CURVE_ABI, hederaProvider);

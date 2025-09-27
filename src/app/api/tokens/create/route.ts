@@ -3,8 +3,8 @@ import { ethers } from 'ethers';
 import { prisma } from '@/lib/db';
 import { FACTORY_ABI } from '@/lib/contracts';
 
-const FLOW_RPC = "https://testnet.evm.nodes.onflow.org";
-const HEDERA_RPC = "https://testnet.hashio.io/api";
+const FLOW_RPC = "https://mainnet.evm.nodes.onflow.org";
+const HEDERA_RPC = "https://mainnet.hashio.io/api";
 
 export async function POST(req: Request) {
   try {
@@ -21,8 +21,8 @@ export async function POST(req: Request) {
 
     const relayerWallet = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY);
 
-    const flowProvider = new ethers.providers.JsonRpcProvider(FLOW_RPC);
-    const hederaProvider = new ethers.providers.JsonRpcProvider(HEDERA_RPC);
+    const flowProvider = new ethers.providers.JsonRpcProvider(FLOW_RPC, { chainId: 747, name: 'flow' });
+    const hederaProvider = new ethers.providers.JsonRpcProvider(HEDERA_RPC, { chainId: 295, name: 'hedera' });
 
     const flowSigner = relayerWallet.connect(flowProvider);
     const hederaSigner = relayerWallet.connect(hederaProvider);

@@ -3,8 +3,8 @@ import { ethers } from 'ethers';
 import { prisma } from '@/lib/db';
 import { FACTORY_ABI } from '@/lib/contracts';
 
-const FLOW_RPC = "https://testnet.evm.nodes.onflow.org";
-const HEDERA_RPC = "https://testnet.hashio.io/api";
+const FLOW_RPC = "https://mainnet.evm.nodes.onflow.org";
+const HEDERA_RPC = "https://mainnet.hashio.io/api";
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder();
@@ -19,6 +19,8 @@ export async function POST(req: Request) {
         const data = await req.json();
         const { name, symbol, description, imageUrl, creator } = data;
 
+        console.log('Token creation request:', { name, symbol, description, imageUrl, creator });
+
         sendUpdate({ status: 'validating', message: 'Validating token parameters...' });
 
         if (!process.env.RELAYER_PRIVATE_KEY) {
@@ -29,15 +31,62 @@ export async function POST(req: Request) {
           throw new Error('Factory addresses not configured');
         }
 
+        console.log('Factory addresses:', {
+          flow: process.env.FLOW_FACTORY_ADDRESS,
+          hedera: process.env.HEDERA_FACTORY_ADDRESS
+        });
+
         const relayerWallet = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY);
+        console.log('Relayer address:', relayerWallet.address);
 
         sendUpdate({ status: 'connecting', message: 'Connecting to blockchains...' });
+        const flowProvider = new ethers.providers.JsonRpcProvider(
+          FLOW_RPC,
+          { chainId: 747, name: 'flow' }
+        );
 
-        const flowProvider = new ethers.providers.JsonRpcProvider(FLOW_RPC);
-        const hederaProvider = new ethers.providers.JsonRpcProvider(HEDERA_RPC);
+        const hederaProvider = new ethers.providers.JsonRpcProvider(
+          HEDERA_RPC,
+          { chainId: 295, name: 'hedera' }
+        );
+
+        console.log('RPC endpoints:', { FLOW_RPC, HEDERA_RPC });
+
+        try {
+          console.log('Testing Flow connection...');
+          const flowBlock = await flowProvider.getBlockNumber();
+          console.log('Flow connected, block:', flowBlock);
+        } catch (e: any) {
+          console.error('Flow RPC connection failed:', e);
+          throw new Error(`Cannot connect to Flow network: ${e.message}`);
+        }
+
+        try {
+          console.log('Testing Hedera connection...');
+          const hederaBlock = await hederaProvider.getBlockNumber();
+          console.log('Hedera connected, block:', hederaBlock);
+        } catch (e: any) {
+          console.error('Hedera RPC connection failed:', e);
+          throw new Error(`Cannot connect to Hedera network: ${e.message}`);
+        }
 
         const flowSigner = relayerWallet.connect(flowProvider);
         const hederaSigner = relayerWallet.connect(hederaProvider);
+
+        const flowBalance = await flowProvider.getBalance(relayerWallet.address);
+        const hederaBalance = await hederaProvider.getBalance(relayerWallet.address);
+
+        console.log('Relayer balances:', {
+          flow: ethers.utils.formatEther(flowBalance) + ' FLOW',
+          hedera: ethers.utils.formatEther(hederaBalance) + ' HBAR'
+        });
+
+        if (flowBalance.isZero()) {
+          throw new Error('Relayer has no FLOW tokens for gas');
+        }
+        if (hederaBalance.isZero()) {
+          throw new Error('Relayer has no HBAR tokens for gas');
+        }
 
         const flowFactory = new ethers.Contract(
           process.env.FLOW_FACTORY_ADDRESS,
@@ -53,14 +102,20 @@ export async function POST(req: Request) {
 
         sendUpdate({ status: 'deploying_flow', message: 'Deploying on Flow blockchain...' });
 
-        const flowTx = await flowFactory.createMeme(
+        const memeParams = {
           name,
           symbol,
           description,
           imageUrl,
           creator,
-          ethers.utils.parseEther("1000000")
-        );
+          maxSupply: ethers.utils.parseEther("1000000")
+        };
+
+        console.log('Deploying on Flow with params:', memeParams);
+
+        const flowTx = await flowFactory.createMeme(memeParams);
+
+        console.log('Flow transaction submitted:', flowTx.hash);
 
         sendUpdate({
           status: 'confirming_flow',
@@ -70,14 +125,11 @@ export async function POST(req: Request) {
 
         sendUpdate({ status: 'deploying_hedera', message: 'Deploying on Hedera blockchain...' });
 
-        const hederaTx = await hederaFactory.createMeme(
-          name,
-          symbol,
-          description,
-          imageUrl,
-          creator,
-          ethers.utils.parseEther("1000000")
-        );
+        console.log('Deploying on Hedera with same params');
+
+        const hederaTx = await hederaFactory.createMeme(memeParams);
+
+        console.log('Hedera transaction submitted:', hederaTx.hash);
 
         sendUpdate({
           status: 'confirming_hedera',
@@ -90,24 +142,39 @@ export async function POST(req: Request) {
           hederaTx.wait()
         ]);
 
+        console.log('Both transactions confirmed');
+        console.log('Flow receipt events:', flowReceipt.events);
+        console.log('Hedera receipt events:', hederaReceipt.events);
+
         sendUpdate({ status: 'storing', message: 'Storing token data...' });
 
         const flowEvent = flowReceipt.events?.find((e: any) => e.event === 'MemeCreated');
         const hederaEvent = hederaReceipt.events?.find((e: any) => e.event === 'MemeCreated');
 
-        const token = await prisma.token.create({
-          data: {
-            id: symbol,
-            name,
-            description,
-            imageUrl,
-            creator,
-            flowAddress: flowEvent?.args?.tokenAddress,
-            hederaAddress: hederaEvent?.args?.tokenAddress,
-            flowCurve: flowEvent?.args?.bondingCurve,
-            hederaCurve: hederaEvent?.args?.bondingCurve
-          }
+        console.log('Parsed events:', {
+          flowEvent: flowEvent?.args,
+          hederaEvent: hederaEvent?.args
         });
+
+        const tokenData = {
+          id: symbol,
+          name,
+          description,
+          imageUrl,
+          creator,
+          flowAddress: flowEvent?.args?.token || flowEvent?.args?.tokenAddress,
+          hederaAddress: hederaEvent?.args?.token || hederaEvent?.args?.tokenAddress,
+          flowCurve: flowEvent?.args?.curve || flowEvent?.args?.bondingCurve,
+          hederaCurve: hederaEvent?.args?.curve || hederaEvent?.args?.bondingCurve
+        };
+
+        console.log('Creating token in database:', tokenData);
+
+        const token = await prisma.token.create({
+          data: tokenData
+        });
+
+        console.log('Token created in database:', token);
 
         sendUpdate({
           status: 'completed',
@@ -118,6 +185,9 @@ export async function POST(req: Request) {
         });
 
       } catch (error: any) {
+        console.error('Token creation error:', error);
+        console.error('Error stack:', error.stack);
+
         sendUpdate({
           status: 'error',
           message: error.message || 'Failed to create token'

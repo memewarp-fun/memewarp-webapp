@@ -4,40 +4,30 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { TokenCard } from "@/components/token-card";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-
-// Generate more mock tokens
-const generateMockTokens = () => {
-  const tokens = [];
-  const names = ["PepeCoin", "DogeMax", "CatVibes", "RocketMeme", "MoonShot", "DiamondHands", "WojakCry", "ChadToken", "ShibaKing", "ElonDoge"];
-  const symbols = ["PEPE", "DMAX", "VIBES", "ROCKET", "MOON", "DIAMOND", "WOJAK", "CHAD", "SHIBA", "EDOGE"];
-  const creators = ["73PXvV", "C3UW51", "A8KL92", "B5TY23", "K9PL44", "M2QW87", "X1RT56", "P9KL23", "Q5WE78", "N3CV89"];
-
-  for (let i = 0; i < 50; i++) {
-    const baseIndex = i % 10;
-    tokens.push({
-      id: i + 1,
-      name: `${names[baseIndex]}${i > 9 ? ` ${Math.floor(i/10)}` : ''}`,
-      symbol: `${symbols[baseIndex]}${i > 9 ? Math.floor(i/10) : ''}`,
-      description: `The ultimate ${names[baseIndex].toLowerCase()} token for the culture. Join the revolution!`,
-      mcap: `$${(Math.random() * 10).toFixed(1)}M`,
-      change24h: `+${(Math.random() * 200).toFixed(2)}%`,
-      launched: `${Math.floor(Math.random() * 24)}h ago`,
-      creator: creators[baseIndex],
-      image: `https://api.dicebear.com/7.x/shapes/svg?seed=${names[baseIndex]}${i}&backgroundColor=${Math.random() > 0.5 ? '1f1f1f' : '22c55e'}`
-    });
-  }
-  return tokens;
-};
-
-const mockTokens = generateMockTokens();
+import { useState, useEffect } from "react";
 
 export default function TokensPage() {
+  const [tokens, setTokens] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [displayCount, setDisplayCount] = useState(12);
-  const tokensToShow = mockTokens.slice(0, displayCount);
+
+  useEffect(() => {
+    fetch('/api/tokens')
+      .then(res => res.json())
+      .then(data => {
+        setTokens(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch tokens:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  const tokensToShow = tokens.slice(0, displayCount);
 
   const loadMore = () => {
-    setDisplayCount(prev => Math.min(prev + 12, mockTokens.length));
+    setDisplayCount(prev => Math.min(prev + 12, tokens.length));
   };
 
   return (
@@ -52,23 +42,52 @@ export default function TokensPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            {tokensToShow.map((token) => (
-              <TokenCard
-                key={token.id}
-                id={token.id}
-                name={token.name}
-                symbol={token.symbol}
-                description={token.description}
-                mcap={token.mcap}
-                change24h={token.change24h}
-                launched={token.launched}
-                creator={token.creator}
-                image={token.image}
-              />
-            ))}
+            {loading ? (
+              <>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                  <div key={i} className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 animate-pulse">
+                    <div className="flex gap-4">
+                      <div className="w-20 h-20 bg-zinc-800 rounded-lg" />
+                      <div className="flex-1">
+                        <div className="h-4 bg-zinc-800 rounded w-3/4 mb-2" />
+                        <div className="h-3 bg-zinc-800 rounded w-1/2 mb-3" />
+                        <div className="h-3 bg-zinc-800 rounded w-full mb-2" />
+                        <div className="h-4 bg-zinc-800 rounded w-1/4" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              tokensToShow.map((token) => {
+                const timeSinceLaunch = token.createdAt
+                  ? `${Math.floor((Date.now() - new Date(token.createdAt).getTime()) / (1000 * 60 * 60))}h ago`
+                  : "Just launched";
+
+                const change24h = token.priceUSD && token.flowPriceUSD
+                  ? ((token.flowPriceUSD > token.hederaPriceUSD ? '+' : '-') + Math.abs(((token.flowPriceUSD - token.hederaPriceUSD) / token.priceUSD * 100)).toFixed(2) + '%')
+                  : '+0.00%';
+
+                return (
+                  <TokenCard
+                    key={token.id}
+                    id={token.id}
+                    name={token.name}
+                    symbol={token.symbol || token.id}
+                    description={token.description || "A new meme token on dual chains"}
+                    mcap={token.marketCapUSD ? `$${(token.marketCapUSD / 1000000).toFixed(1)}M` : "$0"}
+                    change24h={change24h}
+                    launched={timeSinceLaunch}
+                    creator={token.creator?.slice(-6) || "Unknown"}
+                    creatorAddress={token.creator || "0x0000...0000"}
+                    image={token.imageUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${token.symbol}`}
+                  />
+                );
+              })
+            )}
           </div>
 
-          {displayCount < mockTokens.length && (
+          {!loading && displayCount < tokens.length && (
             <div className="text-center">
               <Button
                 onClick={loadMore}
@@ -77,6 +96,13 @@ export default function TokensPage() {
               >
                 Load More Tokens
               </Button>
+            </div>
+          )}
+
+          {!loading && tokens.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-gray-400 text-lg">No tokens have been launched yet.</p>
+              <p className="text-gray-500 mt-2">Be the first to create a meme token!</p>
             </div>
           )}
         </div>

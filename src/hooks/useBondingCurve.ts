@@ -12,7 +12,10 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
     if (!curveAddress) return;
 
     const fetchData = async () => {
-      const provider = new ethers.providers.JsonRpcProvider(CONTRACTS[chain].rpc);
+      const provider = new ethers.providers.JsonRpcProvider(
+        CONTRACTS[chain].rpc,
+        { chainId: CONTRACTS[chain].chainId, name: chain }
+      );
       const curve = new ethers.Contract(curveAddress, BONDING_CURVE_ABI, provider);
       
       const [price, totalSupply] = await Promise.all([
@@ -32,7 +35,7 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
   const buy = async (amount: string) => {
     if (!address) throw new Error('Wallet not connected');
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const provider = new ethers.providers.Web3Provider((window as any).ethereum);
     const signer = provider.getSigner();
     const curve = new ethers.Contract(curveAddress, BONDING_CURVE_ABI, signer);
 
@@ -46,7 +49,7 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
   const sell = async (amount: string) => {
     if (!address) throw new Error('Wallet not connected');
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const provider = new ethers.providers.Web3Provider((window as any).ethereum);
     const signer = provider.getSigner();
     const curve = new ethers.Contract(curveAddress, BONDING_CURVE_ABI, signer);
 
@@ -56,7 +59,10 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
   };
 
   const getQuote = async (amount: string, type: 'buy' | 'sell') => {
-    const provider = new ethers.providers.JsonRpcProvider(CONTRACTS[chain].rpc);
+    const provider = new ethers.providers.JsonRpcProvider(
+      CONTRACTS[chain].rpc,
+      { chainId: CONTRACTS[chain].chainId, name: chain }
+    );
     const curve = new ethers.Contract(curveAddress, BONDING_CURVE_ABI, provider);
     
     const amountWei = ethers.utils.parseEther(amount);
@@ -73,7 +79,7 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
   const burnForCrossChain = async (amount: string, targetChain: 'flow' | 'hedera') => {
     if (!address) throw new Error('Wallet not connected');
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const provider = new ethers.providers.Web3Provider((window as any).ethereum);
     const signer = provider.getSigner();
     const curve = new ethers.Contract(curveAddress, BONDING_CURVE_ABI, signer);
 

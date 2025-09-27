@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,7 +8,7 @@ datasource db {
 }
 
 model Token {
-  id          String @id // symbol
+  id          String @id
   name        String
   description String?
   imageUrl    String?
@@ -22,20 +19,17 @@ model Token {
   flowCurve     String?
   hederaCurve   String?
 
-  // Independent supplies per chain
-  flowSupply    Float @default(0)  // Local supply on Flow
-  hederaSupply  Float @default(0)  // Local supply on Hedera
-  totalSupply   Float @default(0)  // Combined supply
+  flowSupply    Float @default(0)
+  hederaSupply  Float @default(0)
+  totalSupply   Float @default(0)
 
-  // Prices in native tokens (based on LOCAL supply)
-  flowPrice     Float @default(0)  // Price in FLOW
-  hederaPrice   Float @default(0)  // Price in HBAR
+  flowPrice     Float @default(0)
+  hederaPrice   Float @default(0)
 
-  // USD conversions (for arbitrage visibility)
-  flowPriceUSD  Float @default(0)  // Flow price in USD
-  hederaPriceUSD Float @default(0) // Hedera price in USD
-  priceUSD      Float @default(0)  // Min price for sorting
-  marketCapUSD  Float @default(0)  // Combined market cap
+  flowPriceUSD  Float @default(0)
+  hederaPriceUSD Float @default(0)
+  priceUSD      Float @default(0)
+  marketCapUSD  Float @default(0)
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

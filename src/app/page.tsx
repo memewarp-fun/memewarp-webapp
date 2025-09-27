@@ -1,7 +1,6 @@
 import { Header } from "@/components/header";
 import { Hero } from "@/components/hero";
 import { TokenLaunches } from "@/components/token-launches";
-// import { TrendingStreams } from "@/components/trending-streams";
 import { Footer } from "@/components/footer";
 
 export default function Home() {
@@ -13,7 +12,6 @@ export default function Home() {
       </div>
       <main>
         <TokenLaunches />
-        {/* <TrendingStreams /> */}
       </main>
       <Footer />
     </div>

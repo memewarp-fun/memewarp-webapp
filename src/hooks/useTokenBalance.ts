@@ -10,7 +10,10 @@ export function useTokenBalance(tokenAddress: string | undefined, userAddress: s
 
     const fetchBalance = async () => {
       try {
-        const provider = new ethers.providers.JsonRpcProvider(CONTRACTS[chain].rpc);
+        const provider = new ethers.providers.JsonRpcProvider(
+          CONTRACTS[chain].rpc,
+          { chainId: CONTRACTS[chain].chainId, name: chain }
+        );
         const token = new ethers.Contract(tokenAddress, TOKEN_ABI, provider);
         const bal = await token.balanceOf(userAddress);
         setBalance(parseFloat(ethers.utils.formatEther(bal)));

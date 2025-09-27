@@ -1,23 +1,53 @@
 export const CONTRACTS = {
   flow: {
     chainId: 747,
-    rpc: "https://testnet.evm.nodes.onflow.org",
-    factory: process.env.NEXT_PUBLIC_FLOW_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000",
-    bondingCurve: "0x2345678901234567890123456789012345678901"
+    rpc: "https://mainnet.evm.nodes.onflow.org",
+    factory: process.env.NEXT_PUBLIC_FLOW_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000"
   },
   hedera: {
     chainId: 295,
-    rpc: "https://testnet.hashio.io/api",
-    factory: process.env.NEXT_PUBLIC_HEDERA_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000",
-    bondingCurve: "0x4567890123456789012345678901234567890123"
+    rpc: "https://mainnet.hashio.io/api",
+    factory: process.env.NEXT_PUBLIC_HEDERA_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000"
   }
 }
 
 export const FACTORY_ABI = [
-  "function createMeme(string name, string symbol, string description, string imageUrl, address creator, uint256 maxSupply) returns (address)",
-  "function getMeme(string symbol) view returns (address)",
-  "event MemeCreated(string indexed symbol, address indexed tokenAddress, address indexed bondingCurve)"
-]
+  {
+    "inputs": [
+      {
+        "components": [
+          { "internalType": "string", "name": "name", "type": "string" },
+          { "internalType": "string", "name": "symbol", "type": "string" },
+          { "internalType": "string", "name": "description", "type": "string" },
+          { "internalType": "string", "name": "imageUrl", "type": "string" },
+          { "internalType": "address", "name": "creator", "type": "address" },
+          { "internalType": "uint256", "name": "maxSupply", "type": "uint256" }
+        ],
+        "internalType": "struct MemeParams",
+        "name": "params",
+        "type": "tuple"
+      }
+    ],
+    "name": "createMeme",
+    "outputs": [
+      { "internalType": "uint256", "name": "memeId", "type": "uint256" }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "memeId", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "symbol", "type": "string" },
+      { "indexed": false, "internalType": "address", "name": "creator", "type": "address" },
+      { "indexed": false, "internalType": "address", "name": "token", "type": "address" },
+      { "indexed": false, "internalType": "address", "name": "curve", "type": "address" }
+    ],
+    "name": "MemeCreated",
+    "type": "event"
+  }
+];
 
 export const BONDING_CURVE_ABI = [
   "function buy(uint256 amount) payable",
