@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,9 @@ import { TrendingUp, TrendingDown, Wallet, Coins, DollarSign, ArrowUpRight, Arro
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useBondingCurve } from "@/hooks/useBondingCurve";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { TransferModal } from "@/components/transfer-modal";
+import { TokenRow } from "@/components/token-row";
 
 interface TokenHolding {
   id: string;
@@ -74,6 +76,14 @@ export default function PortfolioPage() {
     isOpen: boolean;
     holding: TokenHolding | null;
   }>({ isOpen: false, holding: null });
+  const [tokens, setTokens] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/tokens')
+      .then(res => res.json())
+      .then(data => setTokens(data))
+      .catch(console.error);
+  }, []);
 
   const filteredHoldings = selectedChain === "all"
     ? mockHoldings
@@ -288,6 +298,55 @@ export default function PortfolioPage() {
                   </table>
                 </div>
               </Card>
+
+              {tokens.length > 0 && (
+                <>
+                  <h2 className="text-xl font-bold mt-8 mb-4">On-Chain Balances</h2>
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="border-b">
+                          <tr>
+                            <th className="text-left p-4 font-medium">Token</th>
+                            <th className="text-left p-4 font-medium">Chains</th>
+                            <th className="text-right p-4 font-medium">Balance</th>
+                            <th className="text-right p-4 font-medium">Price</th>
+                            <th className="text-right p-4 font-medium">Value</th>
+                            <th className="text-right p-4 font-medium">24h Change</th>
+                            <th className="text-right p-4 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tokens.map((token) => (
+                            <TokenRow
+                              key={token.id}
+                              token={token}
+                              userAddress={address}
+                              onTransfer={(tokenData, chain) => {
+                                setTransferModal({
+                                  isOpen: true,
+                                  holding: {
+                                    ...tokenData,
+                                    id: token.id,
+                                    name: token.name,
+                                    symbol: token.symbol,
+                                    balance: tokenData.balance,
+                                    price: token.priceUSD,
+                                    value: tokenData.balance * token.priceUSD,
+                                    change24h: 0,
+                                    chain
+                                  }
+                                });
+                              }}
+                              isTransferring={isTransferring[token.id] || false}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </>
+              )}
             </div>
           )}
         </div>
