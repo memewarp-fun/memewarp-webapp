@@ -12,6 +12,7 @@ const mockTokens = [
     change24h: "+19.92%",
     launched: "9m ago",
     creator: "73PXvV",
+    creatorAddress: "0x73PX...vV92",
     image: "https://api.dicebear.com/7.x/shapes/svg?seed=kuda&backgroundColor=1f1f1f"
   },
   {
@@ -23,6 +24,7 @@ const mockTokens = [
     change24h: "+27.54%",
     launched: "5m ago",
     creator: "C3UW51",
+    creatorAddress: "0xC3UW...5123",
     image: "https://api.dicebear.com/7.x/initials/svg?seed=T&backgroundColor=22c55e"
   },
   {
@@ -34,6 +36,7 @@ const mockTokens = [
     change24h: "+89.32%",
     launched: "2h ago",
     creator: "A8KL92",
+    creatorAddress: "0xA8KL...9234",
     image: "https://api.dicebear.com/7.x/fun-emoji/svg?seed=doge"
   },
   {
@@ -45,6 +48,7 @@ const mockTokens = [
     change24h: "+156.78%",
     launched: "4h ago",
     creator: "B5TY23",
+    creatorAddress: "0xB5TY...2345",
     image: "https://api.dicebear.com/7.x/fun-emoji/svg?seed=cat"
   },
   {
@@ -56,6 +60,7 @@ const mockTokens = [
     change24h: "+45.21%",
     launched: "6h ago",
     creator: "K9PL44",
+    creatorAddress: "0xK9PL...4456",
     image: "https://api.dicebear.com/7.x/shapes/svg?seed=rocket&backgroundColor=6366f1"
   },
   {
@@ -67,6 +72,7 @@ const mockTokens = [
     change24h: "+67.89%",
     launched: "8h ago",
     creator: "M2QW87",
+    creatorAddress: "0xM2QW...8767",
     image: "https://api.dicebear.com/7.x/personas/svg?seed=wojak"
   }
 ];
@@ -96,6 +102,7 @@ export function TokenLaunches() {
               change24h={token.change24h}
               launched={token.launched}
               creator={token.creator}
+              creatorAddress={token.creatorAddress}
               image={token.image}
             />
           ))}

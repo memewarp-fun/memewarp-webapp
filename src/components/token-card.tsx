@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Clock } from "lucide-react";
 import Link from "next/link";
@@ -11,6 +13,7 @@ interface TokenCardProps {
   change24h: string;
   launched: string;
   creator: string;
+  creatorAddress?: string;
   image: string;
 }
 
@@ -23,6 +26,7 @@ export function TokenCard({
   change24h,
   launched,
   creator,
+  creatorAddress = "0x1234...5678",
   image
 }: TokenCardProps) {
   return (
@@ -60,7 +64,14 @@ export function TokenCard({
           <div className="flex items-center gap-2 text-xs text-gray-400 mb-1.5">
             <span className="flex items-center gap-0.5">
               <Clock className="w-2.5 h-2.5" />
-              {creator} · {launched}
+              <Link
+                href={`/profile/${creatorAddress}`}
+                onClick={(e) => e.stopPropagation()}
+                className="hover:text-green-500 transition-colors"
+              >
+                {creator}
+              </Link>
+              <span> · {launched}</span>
             </span>
           </div>
 

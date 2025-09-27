@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, ExternalLink, Copy } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 // Mock chart data
 const generateChartData = () => {
@@ -121,7 +122,7 @@ export default function TokenDetailsPage() {
                     <h1 className="text-2xl font-bold">SILENTHILL</h1>
                     <p className="text-gray-400">$SILENT</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Created by: <span className="text-green-500">9Fc6...FwFQ</span>
+                      Created by: <Link href="/profile/0x9Fc6...FwFQ" className="text-green-500 hover:text-green-400 transition-colors">9Fc6...FwFQ</Link>
                     </p>
                   </div>
                 </div>
