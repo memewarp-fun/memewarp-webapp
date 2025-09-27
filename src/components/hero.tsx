@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
+import { GridAnimation } from "@/components/grid-animation";
 
 export function Hero() {
   return (
     <section className="relative py-20 md:py-32 overflow-hidden">
-      <div className="container mx-auto px-6 text-center">
+      <div className="container mx-auto px-6 text-center relative z-10">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold font-space-grotesk mb-6 bg-gradient-to-r from-primary via-accent-foreground to-primary bg-clip-text text-transparent">
             Where Memes Meet DeFi
@@ -21,13 +22,9 @@ export function Hero() {
           </div>
         </div>
       </div>
-      
-      {/* Background decoration */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/20 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-accent/20 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-1/4 left-1/4 w-48 h-48 bg-secondary/20 rounded-full blur-xl"></div>
-      </div>
+
+      {/* Grid animation background */}
+      <GridAnimation />
     </section>
   );
 }
