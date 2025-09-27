@@ -1,4 +1,4 @@
-import { Github, Twitter, Discord, Telegram } from "lucide-react";
+import { Github, Twitter } from "lucide-react";
 
 export function Footer() {
   return (
@@ -15,15 +15,7 @@ export function Footer() {
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
                 <Twitter className="w-5 h-5" />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Discord className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Telegram className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Github className="w-5 h-5" />
-              </a>
+             
             </div>
           </div>
           
