@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { TrendingUp, TrendingDown, Wallet, Coins, DollarSign, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Coins, DollarSign, ArrowUpRight, ArrowDownRight, ArrowLeftRight } from "lucide-react";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useBondingCurve } from "@/hooks/useBondingCurve";
+import { TransferModal } from "@/components/transfer-modal";
 
 interface TokenHolding {
   id: string;
@@ -67,6 +69,11 @@ const mockHoldings: TokenHolding[] = [
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const [selectedChain, setSelectedChain] = useState<"all" | "flow" | "hedera">("all");
+  const [isTransferring, setIsTransferring] = useState<{[key: string]: boolean}>({});
+  const [transferModal, setTransferModal] = useState<{
+    isOpen: boolean;
+    holding: TokenHolding | null;
+  }>({ isOpen: false, holding: null });
 
   const filteredHoldings = selectedChain === "all"
     ? mockHoldings
@@ -75,6 +82,42 @@ export default function PortfolioPage() {
   const totalValue = filteredHoldings.reduce((acc, h) => acc + h.value, 0);
   const totalChange = filteredHoldings.reduce((acc, h) => acc + (h.value * h.change24h / 100), 0);
   const totalChangePercent = (totalChange / totalValue) * 100;
+
+  const handleCrossChainTransfer = async (amount: string) => {
+    const holding = transferModal.holding;
+    if (!holding || !amount || !address) return;
+
+    setIsTransferring({ ...isTransferring, [holding.id]: true });
+    setTransferModal({ isOpen: false, holding: null });
+
+    const targetChain = holding.chain === 'flow' ? 'hedera' : 'flow';
+
+    const bondingCurve = useBondingCurve(
+      holding.chain === 'flow' ? '0x1234' : '0x5678',
+      holding.chain
+    );
+
+    try {
+      await bondingCurve.burnForCrossChain(amount, targetChain);
+
+      await fetch('/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: holding.chain,
+          to: targetChain,
+          amount,
+          tokenSymbol: holding.symbol
+        })
+      });
+
+      await fetch('/api/sync', { method: 'POST' });
+    } catch (error) {
+      console.error('Transfer failed:', error);
+    }
+
+    setIsTransferring({ ...isTransferring, [holding.id]: false });
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -227,6 +270,16 @@ export default function PortfolioPage() {
                           <td className="text-right p-4">
                             <div className="flex gap-2 justify-end">
                               <Button size="sm" variant="outline">Trade</Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setTransferModal({ isOpen: true, holding })}
+                                disabled={isTransferring[holding.id]}
+                                className="gap-1"
+                              >
+                                <ArrowLeftRight className="w-3 h-3" />
+                                Move to {holding.chain === "flow" ? "Hedera" : "Flow"}
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -241,6 +294,18 @@ export default function PortfolioPage() {
       </main>
 
       <Footer />
+
+      {transferModal.holding && (
+        <TransferModal
+          isOpen={transferModal.isOpen}
+          onClose={() => setTransferModal({ isOpen: false, holding: null })}
+          onConfirm={handleCrossChainTransfer}
+          tokenSymbol={transferModal.holding.symbol}
+          sourceChain={transferModal.holding.chain === "flow" ? "Flow" : "Hedera"}
+          targetChain={transferModal.holding.chain === "flow" ? "Hedera" : "Flow"}
+          balance={transferModal.holding.balance}
+        />
+      )}
     </div>
   );
 }
