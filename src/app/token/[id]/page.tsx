@@ -31,8 +31,8 @@ const mockComments = [
 ];
 
 const chains = [
-  { id: "flow", name: "Flow", symbol: "FLOW", icon: "🌊" },
-  { id: "hedera", name: "Hedera", symbol: "HBAR", icon: "♦️" },
+  { id: "flow", name: "Flow", symbol: "FLOW", logo: "https://cryptologos.cc/logos/flow-flow-logo.png" },
+  { id: "hedera", name: "Hedera", symbol: "HBAR", logo: "https://cryptologos.cc/logos/hedera-hbar-logo.png" },
 ];
 
 export default function TokenDetailsPage() {
@@ -269,7 +269,7 @@ export default function TokenDetailsPage() {
                         : "bg-zinc-800 text-gray-400 hover:bg-zinc-700"
                     }`}
                   >
-                    <span className="text-lg">{chain.icon}</span>
+                    <img src={chain.logo} alt={chain.name} className="w-5 h-5" />
                     <span>{chain.name}</span>
                   </button>
                 ))}

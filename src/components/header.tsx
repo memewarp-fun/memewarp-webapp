@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { CustomConnectButton } from "@/components/custom-connect-button";
 
 export function Header() {
   return (
@@ -34,9 +34,7 @@ export function Header() {
             </nav>
           </div>
 
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            Connect Wallet
-          </Button>
+          <CustomConnectButton />
         </div>
       </div>
     </header>
