@@ -5,10 +5,12 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, ExternalLink, Copy } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { PriceChart } from "@/components/price-chart";
+import { useBondingCurve } from "@/hooks/useBondingCurve";
+import { useAccount } from "wagmi";
 
 // Mock chart data
 const generateChartData = () => {
@@ -39,10 +41,25 @@ const chains = [
 
 export default function TokenDetailsPage() {
   const params = useParams();
+  const { address } = useAccount();
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
   const [selectedChain, setSelectedChain] = useState(chains[0]);
   const [amount, setAmount] = useState("");
   const [timeframe, setTimeframe] = useState("1h");
+  const [tokenData, setTokenData] = useState<any>(null);
+  const [isTrading, setIsTrading] = useState(false);
+
+  const bondingCurve = useBondingCurve(
+    tokenData?.[`${selectedChain.id}Curve`],
+    selectedChain.id as 'flow' | 'hedera'
+  );
+
+  useEffect(() => {
+    fetch(`/api/tokens/${params.id}`)
+      .then(res => res.json())
+      .then(data => setTokenData(data))
+      .catch(console.error);
+  }, [params.id]);
 
   const chartData = generateChartData();
   const maxPrice = Math.max(...chartData.map(d => d.price));
@@ -120,10 +137,10 @@ export default function TokenDetailsPage() {
                     className="w-16 h-16 rounded-xl"
                   />
                   <div>
-                    <h1 className="text-2xl font-bold">SILENTHILL</h1>
-                    <p className="text-gray-400">$SILENT</p>
+                    <h1 className="text-2xl font-bold">{tokenData?.name || "Loading..."}</h1>
+                    <p className="text-gray-400">${tokenData?.symbol || "..."}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Created by: <Link href="/profile/0x9Fc6...FwFQ" className="text-green-500 hover:text-green-400 transition-colors">9Fc6...FwFQ</Link>
+                      Created by: <Link href={`/profile/${tokenData?.creator}`} className="text-green-500 hover:text-green-400 transition-colors">{tokenData?.creator?.slice(0, 6)}...{tokenData?.creator?.slice(-4)}</Link>
                     </p>
                   </div>
                 </div>
@@ -302,13 +319,30 @@ export default function TokenDetailsPage() {
 
               {/* Trade Button */}
               <Button
+                onClick={async () => {
+                  if (!amount || !address) return;
+                  setIsTrading(true);
+                  try {
+                    if (activeTab === "buy") {
+                      await bondingCurve.buy(amount);
+                    } else {
+                      await bondingCurve.sell(amount);
+                    }
+                    setAmount("");
+                    await fetch('/api/sync', { method: 'POST' });
+                  } catch (error) {
+                    console.error('Trade failed:', error);
+                  }
+                  setIsTrading(false);
+                }}
+                disabled={isTrading || !amount || !address}
                 className={`w-full py-6 text-lg font-bold ${
                   activeTab === "buy"
                     ? "bg-green-500 hover:bg-green-600 text-black"
                     : "bg-red-500 hover:bg-red-600 text-white"
                 }`}
               >
-                {activeTab === "buy" ? "Buy SILENTHILL" : "Sell SILENTHILL"}
+                {isTrading ? "Processing..." : activeTab === "buy" ? `Buy ${tokenData?.symbol || 'TOKEN'}` : `Sell ${tokenData?.symbol || 'TOKEN'}`}
               </Button>
 
               {/* Position Info */}
