@@ -1,7 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface TokenCardProps {
+  id?: number | string;
   name: string;
   symbol: string;
   description: string;
@@ -13,6 +15,7 @@ interface TokenCardProps {
 }
 
 export function TokenCard({
+  id = 1,
   name,
   symbol,
   description,
@@ -23,7 +26,8 @@ export function TokenCard({
   image
 }: TokenCardProps) {
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 hover:bg-zinc-800/50 transition-all duration-300 cursor-pointer border border-zinc-800 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 group">
+    <Link href={`/token/${id}`}>
+      <div className="bg-zinc-900 rounded-xl p-4 hover:bg-zinc-800/50 transition-all duration-300 cursor-pointer border border-zinc-800 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 group">
       <div className="flex gap-4">
         {/* Image on Left */}
         <div className="relative flex-shrink-0">
@@ -82,5 +86,6 @@ export function TokenCard({
         </div>
       </div>
     </div>
+    </Link>
   );
 }

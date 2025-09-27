@@ -88,6 +88,7 @@ export function TokenLaunches() {
           {mockTokens.map((token) => (
             <TokenCard
               key={token.id}
+              id={token.id}
               name={token.name}
               symbol={token.symbol}
               description={token.description}

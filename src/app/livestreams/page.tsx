@@ -1,6 +1,7 @@
 "use client";
 
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { LivestreamCard } from "@/components/livestream-card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -90,6 +91,7 @@ export default function LivestreamsPage() {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

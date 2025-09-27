@@ -1,6 +1,7 @@
 "use client";
 
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { TokenCard } from "@/components/token-card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -54,6 +55,7 @@ export default function TokensPage() {
             {tokensToShow.map((token) => (
               <TokenCard
                 key={token.id}
+                id={token.id}
                 name={token.name}
                 symbol={token.symbol}
                 description={token.description}
@@ -79,6 +81,7 @@ export default function TokensPage() {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
