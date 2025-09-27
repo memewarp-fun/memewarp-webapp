@@ -31,6 +31,14 @@ export function Header() {
                 Livestreams
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-green-500 group-hover:w-full transition-all duration-300"></span>
               </Link>
+
+              <Link
+                href="/portfolio"
+                className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
+              >
+                Portfolio
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-green-500 group-hover:w-full transition-all duration-300"></span>
+              </Link>
             </nav>
           </div>
 
