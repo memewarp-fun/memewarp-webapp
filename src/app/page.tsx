@@ -7,9 +7,11 @@ import { Footer } from "@/components/footer";
 export default function Home() {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-      <main>
+      <div className="flex flex-col h-screen">
+        <Header />
         <Hero />
+      </div>
+      <main>
         <TokenLaunches />
         <TrendingStreams />
       </main>
