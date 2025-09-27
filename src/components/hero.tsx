@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { GridAnimation } from "@/components/grid-animation";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 export function Hero() {
   const subtitles = [
@@ -34,9 +35,11 @@ export function Hero() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <Button size="lg" className="text-lg px-8 py-6">
-              Launch a Token
-            </Button>
+            <Link href="/create">
+              <Button size="lg" className="text-lg px-8 py-6">
+                Launch a Token
+              </Button>
+            </Link>
             <Button size="lg" variant="outline" className="text-lg px-8 py-6">
               Start Streaming
             </Button>
