@@ -83,7 +83,7 @@ export function GridAnimation() {
     }
 
     function drawGrid() {
-      if (!ctx) return;
+      if (!ctx || !canvas) return;
 
       ctx.strokeStyle = "rgba(34, 197, 94, 0.1)";
       ctx.lineWidth = 0.5;
