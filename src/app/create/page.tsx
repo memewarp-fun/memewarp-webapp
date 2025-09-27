@@ -9,10 +9,13 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useTokenFactory } from "@/hooks/useTokenFactory";
 
 export default function CreateTokenPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
+  const flowFactory = useTokenFactory('flow');
+  const hederaFactory = useTokenFactory('hedera');
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -31,11 +34,47 @@ export default function CreateTokenPage() {
     e.preventDefault();
     setIsCreating(true);
 
-    // Simulate token creation on both chains
-    setTimeout(() => {
-      // Mock redirect to token page
-      router.push("/token/0x1234...5678");
-    }, 3000);
+    try {
+      const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${formData.symbol}`;
+
+      const [flowResult, hederaResult] = await Promise.all([
+        flowFactory.createToken({
+          name: formData.name,
+          symbol: formData.symbol,
+          description: formData.description,
+          imageUrl,
+          maxSupply: "1000000"
+        }),
+        hederaFactory.createToken({
+          name: formData.name,
+          symbol: formData.symbol,
+          description: formData.description,
+          imageUrl,
+          maxSupply: "1000000"
+        })
+      ]);
+
+      await fetch('/api/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: formData.symbol,
+          name: formData.name,
+          description: formData.description,
+          imageUrl,
+          creator: address,
+          flowAddress: flowResult.tokenAddress,
+          hederaAddress: hederaResult.tokenAddress,
+          flowCurve: flowResult.bondingCurve,
+          hederaCurve: hederaResult.bondingCurve
+        })
+      });
+
+      router.push(`/token/${formData.symbol}`);
+    } catch (error) {
+      console.error('Token creation failed:', error);
+      setIsCreating(false);
+    }
   };
 
   return (
