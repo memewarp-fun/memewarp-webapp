@@ -52,10 +52,11 @@ export const FACTORY_ABI = [
 export const BONDING_CURVE_ABI = [
   "function buy(uint256 amount) payable",
   "function sell(uint256 amount)",
-  "function calculateBuyQuote(uint256 amount) view returns (uint256 cost, uint256 fee)",
-  "function calculateSellQuote(uint256 amount) view returns (uint256 proceeds, uint256 fee)",
+  "function calculateBuyQuote(uint256 tokenAmount) view returns (uint256 price, uint256 amount, uint256 cost, uint256 protocolFee, uint256 creatorFee, uint256 netAmount)",
+  "function calculateSellQuote(uint256 tokenAmount) view returns (uint256 price, uint256 amount, uint256 proceeds, uint256 protocolFee, uint256 creatorFee, uint256 netAmount)",
   "function getCurrentPrice() view returns (uint256)",
   "function getSupply() view returns (uint256)",
+  "function state() view returns (uint256 localSupply, uint256 otherChainSupply, uint256 globalSupply, uint256 reserveBalance, bool isGraduated, address pool)",
   "function burnForCrossChain(address user, uint256 amount, address recipient, uint256 targetChainId)",
   "function mintFromCrossChain(address recipient, uint256 amount, bytes32 burnTxHash)",
   "event Buy(address indexed buyer, uint256 amount, uint256 cost)",

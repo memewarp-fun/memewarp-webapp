@@ -10,7 +10,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { PriceChart } from "@/components/price-chart";
 import { useBondingCurve } from "@/hooks/useBondingCurve";
-import { useAccount } from "wagmi";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
+import { useAccount, useBalance } from "wagmi";
+import { TransactionModal } from "@/components/transaction-modal";
 
 // Mock chart data
 const generateChartData = () => {
@@ -35,24 +37,53 @@ const mockComments = [
 ];
 
 const chains = [
-  { id: "flow", name: "Flow", symbol: "FLOW", logo: "https://cryptologos.cc/logos/flow-flow-logo.png" },
-  { id: "hedera", name: "Hedera", symbol: "HBAR", logo: "https://cryptologos.cc/logos/hedera-hbar-logo.png" },
+  { id: "flow", name: "Flow", symbol: "FLOW", logo: "/flow-logo.png" },
+  { id: "hedera", name: "Hedera", symbol: "HBAR", logo: "/hedera-logo.png" },
 ];
 
 export default function TokenDetailsPage() {
   const params = useParams();
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
   const [selectedChain, setSelectedChain] = useState(chains[0]);
   const [amount, setAmount] = useState("");
   const [timeframe, setTimeframe] = useState("1h");
   const [tokenData, setTokenData] = useState<any>(null);
   const [isTrading, setIsTrading] = useState(false);
+  const [quote, setQuote] = useState<any>(null);
+  const [tokenAmount, setTokenAmount] = useState<string>("");
+  const [otherChainSupply, setOtherChainSupply] = useState<number>(0);
+  const [txModal, setTxModal] = useState<{
+    isOpen: boolean;
+    status: 'processing' | 'success' | 'error';
+    txHash?: string;
+    error?: string;
+    action?: string;
+    amount?: string;
+    token?: string;
+  }>({
+    isOpen: false,
+    status: 'processing'
+  });
+
+  const [balanceKey, setBalanceKey] = useState(0); // Force balance refresh
 
   const bondingCurve = useBondingCurve(
     tokenData?.[`${selectedChain.id}Curve`],
     selectedChain.id as 'flow' | 'hedera'
   );
+
+  const { balance: tokenBalance, refetch: refetchBalance } = useTokenBalance(
+    tokenData?.[`${selectedChain.id}Address`],
+    address,
+    selectedChain.id as 'flow' | 'hedera',
+    balanceKey
+  );
+
+  const { data: nativeBalance } = useBalance({
+    address: address as `0x${string}`,
+    chainId: selectedChain.id === 'flow' ? 747 : 295
+  });
 
   useEffect(() => {
     fetch(`/api/tokens/${params.id}`)
@@ -60,6 +91,83 @@ export default function TokenDetailsPage() {
       .then(data => setTokenData(data))
       .catch(console.error);
   }, [params.id]);
+
+  // Fetch other chain supply
+  useEffect(() => {
+    if (!tokenData) return;
+
+    const fetchOtherChainSupply = async () => {
+      const otherChain = selectedChain.id === 'flow' ? 'hedera' : 'flow';
+      const otherCurveAddress = tokenData[`${otherChain}Curve`];
+
+      if (!otherCurveAddress || otherCurveAddress === '0x0000000000000000000000000000000000000000') {
+        setOtherChainSupply(0);
+        return;
+      }
+
+      try {
+        const { ethers } = await import('ethers');
+        const CONTRACTS = {
+          flow: { chainId: 747, rpc: "https://mainnet.evm.nodes.onflow.org" },
+          hedera: { chainId: 295, rpc: "https://mainnet.hashio.io/api" }
+        };
+
+        const provider = new ethers.providers.JsonRpcProvider(
+          CONTRACTS[otherChain as 'flow' | 'hedera'].rpc,
+          { chainId: CONTRACTS[otherChain as 'flow' | 'hedera'].chainId, name: otherChain }
+        );
+
+        const curveAbi = ["function state() view returns (uint256 localSupply, uint256 otherChainSupply, uint256 globalSupply, uint256 reserveBalance, bool isGraduated, address pool)"];
+        const curve = new ethers.Contract(otherCurveAddress, curveAbi, provider);
+        const state = await curve.state();
+        const supply = state.localSupply || state[0];
+        setOtherChainSupply(parseFloat(ethers.utils.formatEther(supply || 0)));
+      } catch (error) {
+        console.error('Failed to fetch other chain supply:', error);
+        setOtherChainSupply(0);
+      }
+    };
+
+    fetchOtherChainSupply();
+    const interval = setInterval(fetchOtherChainSupply, 5000);
+    return () => clearInterval(interval);
+  }, [tokenData, selectedChain.id]);
+
+  useEffect(() => {
+    // Debounce the quote calculation
+    const timeoutId = setTimeout(() => {
+      if (amount && parseFloat(amount) > 0) {
+        if (activeTab === 'buy' && bondingCurve.calculateTokensForPayment) {
+          // For buy: amount is FLOW/HBAR to spend
+          bondingCurve.calculateTokensForPayment(amount)
+            .then(result => {
+              if (result) {
+                setTokenAmount(result.tokens);
+                setQuote(result);
+              } else {
+                setTokenAmount("");
+                setQuote(null);
+              }
+            })
+            .catch(() => {
+              setTokenAmount("");
+              setQuote(null);
+            });
+        } else if (activeTab === 'sell' && bondingCurve.getQuote) {
+          // For sell: amount is tokens to sell
+          setTokenAmount(amount);
+          bondingCurve.getQuote(amount, 'sell')
+            .then(setQuote)
+            .catch(() => setQuote(null));
+        }
+      } else {
+        setQuote(null);
+        setTokenAmount("");
+      }
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [amount, activeTab, bondingCurve]);
 
   const chartData = generateChartData();
   const maxPrice = Math.max(...chartData.map(d => d.price));
@@ -276,13 +384,24 @@ export default function TokenDetailsPage() {
               {/* Balance Display */}
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-400">Balance:</span>
-                  <span>0.006797 {selectedChain.symbol}</span>
+                  <span className="text-gray-400">{selectedChain.symbol} Balance:</span>
+                  <span>{nativeBalance ? parseFloat(nativeBalance.formatted).toFixed(6) : '0.000000'} {selectedChain.symbol}</span>
                 </div>
+                {activeTab === "sell" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Token Balance:</span>
+                    <span>{tokenBalance.toFixed(6)} {tokenData?.symbol}</span>
+                  </div>
+                )}
               </div>
 
               {/* Amount Input */}
               <div className="mb-4">
+                <label className="text-sm text-gray-400 mb-2 block">
+                  {activeTab === "buy"
+                    ? `Enter ${selectedChain.symbol} amount to spend`
+                    : `Enter ${tokenData?.symbol || 'token'} amount to sell`}
+                </label>
                 <div className="bg-zinc-800 rounded-lg p-4">
                   <input
                     type="text"
@@ -297,69 +416,252 @@ export default function TokenDetailsPage() {
                         key={preset}
                         onClick={() => {
                           if (preset === "Reset") setAmount("");
-                          else if (preset === "Max") setAmount("0.006797");
+                          else if (preset === "Max") {
+                            if (activeTab === "buy" && nativeBalance) {
+                              const maxBuy = Math.max(0, parseFloat(nativeBalance.formatted) - 0.01);
+                              setAmount(maxBuy.toString());
+                            } else if (activeTab === "sell") {
+                              setAmount(tokenBalance.toString());
+                            }
+                          }
                           else setAmount(preset);
                         }}
                         className="flex-1 py-1 text-xs bg-zinc-700 rounded hover:bg-zinc-600 transition-colors"
                       >
-                        {preset} {preset !== "Reset" && preset !== "Max" && selectedChain.symbol}
+                        {preset} {preset !== "Reset" && preset !== "Max" && (activeTab === "sell" ? tokenData?.symbol : selectedChain.symbol)}
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Slippage Settings */}
-              <div className="mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Set max slippage</span>
-                  <button className="text-green-500 hover:underline">Auto</button>
-                </div>
-              </div>
+              {/* Quote Display */}
+              {amount && parseFloat(amount) > 0 && (
+                activeTab === "buy" && !tokenAmount ? (
+                  // Loading skeleton
+                  <div className="mb-4 p-3 bg-zinc-800 rounded-lg animate-pulse">
+                    <div className="flex justify-between mb-2 pb-2 border-b border-zinc-700">
+                      <div className="h-4 w-20 bg-zinc-700 rounded"></div>
+                      <div className="h-5 w-32 bg-zinc-700 rounded"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <div className="h-3 w-24 bg-zinc-700 rounded"></div>
+                        <div className="h-3 w-20 bg-zinc-700 rounded"></div>
+                      </div>
+                      <div className="flex justify-between">
+                        <div className="h-3 w-28 bg-zinc-700 rounded"></div>
+                        <div className="h-3 w-24 bg-zinc-700 rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : quote && (
+                  <div className="mb-4 p-3 bg-zinc-800 rounded-lg">
+                    {activeTab === "buy" && tokenAmount && (
+                      <div className="flex justify-between text-sm mb-2 pb-2 border-b border-zinc-700">
+                        <span className="text-gray-400">You'll Receive:</span>
+                        <span className="font-bold text-green-400 text-lg">
+                          {Math.floor(parseFloat(tokenAmount)).toLocaleString()} {tokenData?.symbol}
+                        </span>
+                      </div>
+                    )}
+                    {activeTab === "sell" && (
+                      <div className="flex justify-between text-sm mb-2 pb-2 border-b border-zinc-700">
+                        <span className="text-gray-400">You'll Receive:</span>
+                        <span className="font-bold text-green-400 text-lg">
+                          {parseFloat(quote.cost).toFixed(6)} {selectedChain.symbol}
+                        </span>
+                      </div>
+                    )}
+                    {(quote.protocolFee || quote.creatorFee) && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Platform Fees:</span>
+                        <span className="text-yellow-400">
+                          {(parseFloat(quote.protocolFee || '0') + parseFloat(quote.creatorFee || '0')).toFixed(6)} {selectedChain.symbol}
+                        </span>
+                      </div>
+                    )}
+                    <div className="mt-2 pt-2 border-t border-zinc-700 text-xs text-gray-500">
+                      <div className="flex justify-between">
+                        <span>Protocol Fee (1%):</span>
+                        <span>{parseFloat(quote.protocolFee || '0').toFixed(6)} {selectedChain.symbol}</span>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span>Creator Fee (1%):</span>
+                        <span>{parseFloat(quote.creatorFee || '0').toFixed(6)} {selectedChain.symbol}</span>
+                      </div>
+                    </div>
+                    {quote.price && parseFloat(quote.price) > 0 && (
+                      <div className="flex justify-between text-sm mt-2 pt-2 border-t border-zinc-700">
+                        <span className="text-gray-400">Avg Price per Token:</span>
+                        <span>{parseFloat(quote.price).toFixed(8)} {selectedChain.symbol}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
 
               {/* Trade Button */}
               <Button
                 onClick={async () => {
-                  if (!amount || !address) return;
+                  if (!amount || !address || !isConnected) {
+                    alert("Please connect your wallet first!");
+                    return;
+                  }
+
+                  console.log('Trading on chain:', selectedChain.id);
+                  console.log('Token data:', tokenData);
+                  console.log('Curve address:', tokenData?.[`${selectedChain.id}Curve`]);
+                  console.log('Token address:', tokenData?.[`${selectedChain.id}Address`]);
+                  console.log('Active tab:', activeTab);
+                  console.log('Amount:', amount);
+
+                  const txAmount = activeTab === "buy"
+                    ? (tokenAmount ? Math.floor(parseFloat(tokenAmount)).toString() : "0")
+                    : amount;
+
+                  const txTokenSymbol = tokenData?.symbol || 'TOKEN';
+
+                  // Show processing modal
+                  setTxModal({
+                    isOpen: true,
+                    status: 'processing',
+                    action: activeTab === 'buy' ? 'Buy' : 'Sell',
+                    amount: txAmount,
+                    token: txTokenSymbol
+                  });
+
                   setIsTrading(true);
                   try {
+                    let receipt;
                     if (activeTab === "buy") {
-                      await bondingCurve.buy(amount);
+                      // Use tokenAmount for buy (calculated from FLOW/HBAR spend)
+                      if (!tokenAmount) {
+                        setTxModal({
+                          isOpen: true,
+                          status: 'error',
+                          error: "Calculating token amount, please wait...",
+                          action: 'Buy',
+                          amount: txAmount,
+                          token: txTokenSymbol
+                        });
+                        setIsTrading(false);
+                        return;
+                      }
+                      receipt = await bondingCurve.buy(tokenAmount);
                     } else {
-                      await bondingCurve.sell(amount);
+                      receipt = await bondingCurve.sell(amount);
                     }
+
+                    // Show success modal
+                    setTxModal({
+                      isOpen: true,
+                      status: 'success',
+                      txHash: receipt.transactionHash || receipt.hash,
+                      action: activeTab === 'buy' ? 'Buy' : 'Sell',
+                      amount: txAmount,
+                      token: txTokenSymbol
+                    });
+
                     setAmount("");
-                    await fetch('/api/sync', { method: 'POST' });
-                  } catch (error) {
+                    setTokenAmount("");
+                    setQuote(null);
+
+                    // Refresh balances after successful transaction
+                    setTimeout(() => {
+                      setBalanceKey(prev => prev + 1); // Trigger balance refresh
+                      refetchBalance(); // Immediate refetch
+                    }, 1000);
+
+                    // Sync in background
+                    fetch('/api/sync', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        tokenId: params.id,
+                        chain: selectedChain.id,
+                        txHash: receipt.transactionHash || receipt.hash,
+                        type: activeTab,
+                        amount: txAmount,
+                        user: address
+                      })
+                    }).catch(console.error);
+
+                  } catch (error: any) {
                     console.error('Trade failed:', error);
+                    setTxModal({
+                      isOpen: true,
+                      status: 'error',
+                      error: error.message || 'Transaction failed. Please try again.',
+                      action: activeTab === 'buy' ? 'Buy' : 'Sell',
+                      amount: txAmount,
+                      token: txTokenSymbol
+                    });
                   }
                   setIsTrading(false);
                 }}
-                disabled={isTrading || !amount || !address}
+                disabled={isTrading || !amount || !address || parseFloat(amount) <= 0}
                 className={`w-full py-6 text-lg font-bold ${
                   activeTab === "buy"
-                    ? "bg-green-500 hover:bg-green-600 text-black"
-                    : "bg-red-500 hover:bg-red-600 text-white"
+                    ? "bg-green-500 hover:bg-green-600 text-black disabled:bg-green-900"
+                    : "bg-red-500 hover:bg-red-600 text-white disabled:bg-red-900"
                 }`}
               >
-                {isTrading ? "Processing..." : activeTab === "buy" ? `Buy ${tokenData?.symbol || 'TOKEN'}` : `Sell ${tokenData?.symbol || 'TOKEN'}`}
+                {!isConnected ? "Connect Wallet" :
+                 isTrading ? "Processing..." :
+                 !amount ? `Enter Amount` :
+                 activeTab === "buy" ?
+                   (tokenAmount ? `Buy ${Math.floor(parseFloat(tokenAmount)).toLocaleString()} ${tokenData?.symbol || 'TOKEN'}` : "Calculating...") :
+                   `Sell ${parseFloat(amount).toLocaleString()} ${tokenData?.symbol || 'TOKEN'}`}
               </Button>
 
-              {/* Position Info */}
+              {/* Bonding Curve Progress */}
               <div className="mt-6 pt-6 border-t border-zinc-800">
-                <div className="flex justify-between mb-3">
-                  <span className="text-gray-400">Position</span>
-                  <span>$0.00 <span className="text-gray-500">0 SILENTHILL</span></span>
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-400 font-semibold">Bonding Curve</span>
+                  <span className="text-xs text-gray-500">
+                    {((bondingCurve.supply + otherChainSupply) / (1000000 * 0.9) * 100).toFixed(1)}% filled
+                  </span>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Trades</span>
-                    <span className="text-gray-400">Profit/Loss</span>
+                <div className="relative w-full h-4 bg-zinc-700 rounded-full overflow-hidden mb-3">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, (bondingCurve.supply + otherChainSupply) / (1000000 * 0.9) * 100)}%`
+                    }}
+                  />
+                  <div className="absolute left-0 top-0 h-full w-full flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white/80 drop-shadow-md">
+                      {Math.floor(bondingCurve.supply + otherChainSupply).toLocaleString()} / {(900000).toLocaleString()}
+                    </span>
                   </div>
-                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-red-500 to-green-500 w-1/2"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-zinc-700/30 rounded p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                      <img src="/flow-logo.png" alt="Flow" className="w-3 h-3" />
+                      <span className="text-gray-400">Flow Supply</span>
+                    </div>
+                    <div className="font-semibold">
+                      {selectedChain.id === 'flow' ? bondingCurve.supply.toLocaleString() : otherChainSupply.toLocaleString()}
+                    </div>
                   </div>
+                  <div className="bg-zinc-700/30 rounded p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                      <img src="/hedera-logo.png" alt="Hedera" className="w-3 h-3" />
+                      <span className="text-gray-400">Hedera Supply</span>
+                    </div>
+                    <div className="font-semibold">
+                      {selectedChain.id === 'hedera' ? bondingCurve.supply.toLocaleString() : otherChainSupply.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-xs text-gray-500 text-center">
+                  <span>Graduation at 90% of max supply • </span>
+                  <span>Current Price: {bondingCurve.currentPrice.toFixed(8)} {selectedChain.symbol}</span>
                 </div>
               </div>
             </div>
@@ -367,6 +669,19 @@ export default function TokenDetailsPage() {
         </div>
       </main>
       <Footer />
+
+      {/* Transaction Modal */}
+      <TransactionModal
+        isOpen={txModal.isOpen}
+        onClose={() => setTxModal({ ...txModal, isOpen: false })}
+        status={txModal.status}
+        txHash={txModal.txHash}
+        error={txModal.error}
+        action={txModal.action}
+        amount={txModal.amount}
+        token={txModal.token}
+        chain={selectedChain.id}
+      />
     </div>
   );
 }

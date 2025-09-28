@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { TrendingUp, TrendingDown, Wallet, Coins, DollarSign, ArrowUpRight, ArrowDownRight, ArrowLeftRight } from "lucide-react";
+import { Wallet, Coins, ArrowLeftRight } from "lucide-react";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useBondingCurve } from "@/hooks/useBondingCurve";
-import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { TransferModal } from "@/components/transfer-modal";
-import { TokenRow } from "@/components/token-row";
+import { PortfolioTokenRow } from "@/components/portfolio-token-row";
+import React from "react";
 
 interface TokenHolding {
   id: string;
@@ -25,49 +25,6 @@ interface TokenHolding {
   chain: "flow" | "hedera";
 }
 
-const mockHoldings: TokenHolding[] = [
-  {
-    id: "1",
-    name: "Doge Killer",
-    symbol: "DOGEKILL",
-    balance: 1000000,
-    price: 0.00045,
-    value: 450,
-    change24h: 125.5,
-    chain: "flow"
-  },
-  {
-    id: "2",
-    name: "Moon Cat",
-    symbol: "MCAT",
-    balance: 500000,
-    price: 0.00089,
-    value: 445,
-    change24h: -12.3,
-    chain: "hedera"
-  },
-  {
-    id: "3",
-    name: "Pepe Classic",
-    symbol: "PEPEC",
-    balance: 2500000,
-    price: 0.00012,
-    value: 300,
-    change24h: 45.7,
-    chain: "flow"
-  },
-  {
-    id: "4",
-    name: "Shiba Dad",
-    symbol: "SDAD",
-    balance: 750000,
-    price: 0.00067,
-    value: 502.5,
-    change24h: 8.9,
-    chain: "hedera"
-  }
-];
-
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const [selectedChain, setSelectedChain] = useState<"all" | "flow" | "hedera">("all");
@@ -77,6 +34,8 @@ export default function PortfolioPage() {
     holding: TokenHolding | null;
   }>({ isOpen: false, holding: null });
   const [tokens, setTokens] = useState<any[]>([]);
+  const [userBalances, setUserBalances] = useState<{[key: string]: {flow: number, hedera: number, value: number}}>({});
+  const [totalValue, setTotalValue] = useState(0);
 
   useEffect(() => {
     fetch('/api/tokens')
@@ -85,13 +44,44 @@ export default function PortfolioPage() {
       .catch(console.error);
   }, []);
 
-  const filteredHoldings = selectedChain === "all"
-    ? mockHoldings
-    : mockHoldings.filter(h => h.chain === selectedChain);
+  // Calculate user-specific stats
+  const tokensWithBalance = Object.keys(userBalances).filter(id => {
+    const balance = userBalances[id];
+    return (balance.flow + balance.hedera) > 0;
+  });
 
-  const totalValue = filteredHoldings.reduce((acc, h) => acc + h.value, 0);
-  const totalChange = filteredHoldings.reduce((acc, h) => acc + (h.value * h.change24h / 100), 0);
-  const totalChangePercent = (totalChange / totalValue) * 100;
+  const flowTokens = tokensWithBalance.filter(id => userBalances[id].flow > 0);
+  const hederaTokens = tokensWithBalance.filter(id => userBalances[id].hedera > 0);
+
+  const handleBalanceUpdate = (tokenId: string, flowBalance: number, hederaBalance: number, value: number) => {
+    setUserBalances(prev => ({
+      ...prev,
+      [tokenId]: { flow: flowBalance, hedera: hederaBalance, value }
+    }));
+  };
+
+  // Calculate total portfolio value
+  React.useEffect(() => {
+    const total = Object.values(userBalances).reduce((sum, balance) => {
+      return sum + (balance.value || 0);
+    }, 0);
+    setTotalValue(total);
+  }, [userBalances]);
+
+  const filteredTokens = tokens.filter(token => {
+    const balance = userBalances[token.id];
+    if (!balance) return true; // Show all tokens initially, PortfolioTokenRow will filter by balance
+
+    if (selectedChain === "all") {
+      return true;
+    } else if (selectedChain === "flow") {
+      return balance.flow > 0;
+    } else if (selectedChain === "hedera") {
+      return balance.hedera > 0;
+    }
+    return false;
+  });
+
 
   const handleCrossChainTransfer = async (amount: string) => {
     const holding = transferModal.holding;
@@ -102,28 +92,28 @@ export default function PortfolioPage() {
 
     const targetChain = holding.chain === 'flow' ? 'hedera' : 'flow';
 
-    const bondingCurve = useBondingCurve(
-      holding.chain === 'flow' ? '0x1234' : '0x5678',
-      holding.chain
-    );
-
     try {
-      await bondingCurve.burnForCrossChain(amount, targetChain);
-
-      await fetch('/api/transfers', {
+      const response = await fetch('/api/transfers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: holding.chain,
           to: targetChain,
           amount,
-          tokenSymbol: holding.symbol
+          tokenSymbol: holding.symbol,
+          userAddress: address
         })
       });
 
+      if (!response.ok) {
+        throw new Error('Transfer failed');
+      }
+
       await fetch('/api/sync', { method: 'POST' });
+
     } catch (error) {
       console.error('Transfer failed:', error);
+      alert('Transfer failed. Please try again.');
     }
 
     setIsTransferring({ ...isTransferring, [holding.id]: false });
@@ -154,14 +144,14 @@ export default function PortfolioPage() {
               </div>
 
               {/* Portfolio Stats */}
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-4 gap-4">
                 <Card className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <DollarSign className="w-5 h-5 text-primary" />
+                    <div className="p-2 bg-green-500/10 rounded-lg">
+                      <span className="text-green-500 text-xl font-bold">$</span>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Value</p>
+                      <p className="text-sm text-muted-foreground">Portfolio Value</p>
                       <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
                     </div>
                   </div>
@@ -169,12 +159,24 @@ export default function PortfolioPage() {
 
                 <Card className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <Coins className="w-5 h-5 text-blue-500" />
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Coins className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Tokens</p>
-                      <p className="text-2xl font-bold">{filteredHoldings.length}</p>
+                      <p className="text-sm text-muted-foreground">Your Tokens</p>
+                      <p className="text-2xl font-bold">{tokensWithBalance.length}</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <img src="/flow-logo.png" alt="Flow" className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Flow Holdings</p>
+                      <p className="text-2xl font-bold">{flowTokens.length}</p>
                     </div>
                   </div>
                 </Card>
@@ -182,11 +184,11 @@ export default function PortfolioPage() {
                 <Card className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-purple-500/10 rounded-lg">
-                      <Wallet className="w-5 h-5 text-purple-500" />
+                      <img src="/hedera-logo.png" alt="Hedera" className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Active Chains</p>
-                      <p className="text-2xl font-bold">2</p>
+                      <p className="text-sm text-muted-foreground">Hedera Holdings</p>
+                      <p className="text-2xl font-bold">{hederaTokens.length}</p>
                     </div>
                   </div>
                 </Card>
@@ -221,87 +223,8 @@ export default function PortfolioPage() {
                 </Button>
               </div>
 
-              {/* Holdings Table */}
-              <Card>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr>
-                        <th className="text-left p-4 font-medium">Token</th>
-                        <th className="text-left p-4 font-medium">Chain</th>
-                        <th className="text-right p-4 font-medium">Balance</th>
-                        <th className="text-right p-4 font-medium">Price</th>
-                        <th className="text-right p-4 font-medium">Value</th>
-                        <th className="text-right p-4 font-medium">24h Change</th>
-                        <th className="text-right p-4 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredHoldings.map((holding) => (
-                        <tr key={holding.id} className="border-b hover:bg-muted/50 transition-colors">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-primary to-purple-500 rounded-full" />
-                              <div>
-                                <p className="font-semibold">{holding.name}</p>
-                                <p className="text-sm text-muted-foreground">{holding.symbol}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Badge variant="outline" className="gap-1">
-                              <img
-                                src={holding.chain === "flow" ? "/flow-logo.png" : "/hedera-logo.png"}
-                                alt={holding.chain}
-                                className="w-3 h-3"
-                              />
-                              {holding.chain === "flow" ? "Flow" : "Hedera"}
-                            </Badge>
-                          </td>
-                          <td className="text-right p-4">
-                            {holding.balance.toLocaleString()}
-                          </td>
-                          <td className="text-right p-4">
-                            ${holding.price.toFixed(6)}
-                          </td>
-                          <td className="text-right p-4 font-semibold">
-                            ${holding.value.toFixed(2)}
-                          </td>
-                          <td className="text-right p-4">
-                            <div className={`flex items-center justify-end gap-1 ${holding.change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {holding.change24h >= 0 ? (
-                                <ArrowUpRight className="w-4 h-4" />
-                              ) : (
-                                <ArrowDownRight className="w-4 h-4" />
-                              )}
-                              {Math.abs(holding.change24h)}%
-                            </div>
-                          </td>
-                          <td className="text-right p-4">
-                            <div className="flex gap-2 justify-end">
-                              <Button size="sm" variant="outline">Trade</Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setTransferModal({ isOpen: true, holding })}
-                                disabled={isTransferring[holding.id]}
-                                className="gap-1"
-                              >
-                                <ArrowLeftRight className="w-3 h-3" />
-                                Move to {holding.chain === "flow" ? "Hedera" : "Flow"}
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-
-              {tokens.length > 0 && (
-                <>
-                  <h2 className="text-xl font-bold mt-8 mb-4">On-Chain Balances</h2>
+              {/* Token Holdings */}
+              {filteredTokens.length > 0 ? (
                   <Card>
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -309,16 +232,15 @@ export default function PortfolioPage() {
                           <tr>
                             <th className="text-left p-4 font-medium">Token</th>
                             <th className="text-left p-4 font-medium">Chains</th>
-                            <th className="text-right p-4 font-medium">Balance</th>
-                            <th className="text-right p-4 font-medium">Price</th>
-                            <th className="text-right p-4 font-medium">Value</th>
-                            <th className="text-right p-4 font-medium">24h Change</th>
+                            <th className="text-right p-4 font-medium">Flow Balance</th>
+                            <th className="text-right p-4 font-medium">Hedera Balance</th>
+                            <th className="text-right p-4 font-medium">Total Balance</th>
                             <th className="text-right p-4 font-medium">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {tokens.map((token) => (
-                            <TokenRow
+                          {filteredTokens.map((token) => (
+                            <PortfolioTokenRow
                               key={token.id}
                               token={token}
                               userAddress={address}
@@ -331,21 +253,26 @@ export default function PortfolioPage() {
                                     name: token.name,
                                     symbol: token.symbol,
                                     balance: tokenData.balance,
-                                    price: token.priceUSD,
-                                    value: tokenData.balance * token.priceUSD,
+                                    price: 0,
+                                    value: 0,
                                     change24h: 0,
                                     chain
                                   }
                                 });
                               }}
                               isTransferring={isTransferring[token.id] || false}
+                              onBalanceUpdate={handleBalanceUpdate}
+                              selectedChain={selectedChain}
                             />
                           ))}
                         </tbody>
                       </table>
                     </div>
                   </Card>
-                </>
+              ) : (
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">No tokens found in your portfolio</p>
+                </Card>
               )}
             </div>
           )}
