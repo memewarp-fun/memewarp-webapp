@@ -41,6 +41,55 @@ const chains = [
   { id: "hedera", name: "Hedera", symbol: "HBAR", logo: "/hedera-logo.png" },
 ];
 
+// Component for dual chain prices
+const DualChainPrices = ({ tokenData }: { tokenData: any }) => {
+  const flowCurve = useBondingCurve(tokenData?.flowCurve || '', 'flow');
+  const hederaCurve = useBondingCurve(tokenData?.hederaCurve || '', 'hedera');
+  const [usdPrices, setUsdPrices] = useState<{ flowUsd: number; hbarUsd: number } | null>(null);
+
+  useEffect(() => {
+    import('@/lib/pyth').then(({ getPrices }) => {
+      getPrices().then(setUsdPrices).catch(() => {});
+    });
+  }, []);
+
+  const flowPriceUsd = usdPrices ? (flowCurve.currentPrice * usdPrices.flowUsd) : 0;
+  const hederaPriceUsd = usdPrices ? (hederaCurve.currentPrice * usdPrices.hbarUsd) : 0;
+
+  return (
+    <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="bg-zinc-800/50 rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <img src="/flow-logo.png" alt="Flow" className="w-4 h-4" />
+          <p className="text-gray-400 text-sm">Flow Price</p>
+        </div>
+        <p className="text-xl font-bold">
+          {flowCurve.currentPrice.toFixed(8)} FLOW
+        </p>
+        {usdPrices && (
+          <p className="text-sm text-gray-400">
+            ${flowPriceUsd.toFixed(6)} USD
+          </p>
+        )}
+      </div>
+      <div className="bg-zinc-800/50 rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <img src="/hedera-logo.png" alt="Hedera" className="w-4 h-4" />
+          <p className="text-gray-400 text-sm">Hedera Price</p>
+        </div>
+        <p className="text-xl font-bold">
+          {hederaCurve.currentPrice.toFixed(8)} HBAR
+        </p>
+        {usdPrices && (
+          <p className="text-sm text-gray-400">
+            ${hederaPriceUsd.toFixed(6)} USD
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function TokenDetailsPage() {
   const params = useParams();
   const { address, isConnected } = useAccount();
@@ -89,7 +138,7 @@ export default function TokenDetailsPage() {
     fetch(`/api/tokens/${params.id}`)
       .then(res => res.json())
       .then(data => setTokenData(data))
-      .catch(console.error);
+      .catch(() => {});
   }, [params.id]);
 
   // Fetch other chain supply
@@ -123,7 +172,6 @@ export default function TokenDetailsPage() {
         const supply = state.localSupply || state[0];
         setOtherChainSupply(parseFloat(ethers.utils.formatEther(supply || 0)));
       } catch (error) {
-        console.error('Failed to fetch other chain supply:', error);
         setOtherChainSupply(0);
       }
     };
@@ -258,43 +306,144 @@ export default function TokenDetailsPage() {
                 </Badge>
               </div>
 
-              {/* Market Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div>
-                  <p className="text-gray-400 text-sm">Market Cap</p>
-                  <p className="text-xl font-bold">$10.6K</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">24h Volume</p>
-                  <p className="text-xl font-bold">2.2K</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">ATH</p>
-                  <p className="text-xl font-bold">$10.6K</p>
-                </div>
-              </div>
+              {/* Dual Chain Prices */}
+              <DualChainPrices tokenData={tokenData} />
 
-              {/* Description */}
-              <div className="border-t border-zinc-800 pt-4">
-                <p className="text-gray-300">
-                  The ultimate meme token for the culture. Join the silent revolution and ride the wave to the moon!
-                  Community-driven project with locked liquidity and renounced contract.
-                </p>
+              {/* Contract Addresses */}
+              <div className="border-t border-zinc-800 pt-4 space-y-3">
+                <div>
+                  <p className="text-gray-400 text-xs uppercase mb-2">Token Addresses</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        <img src="/flow-logo.png" alt="Flow" className="w-3 h-3" />
+                        <span className="text-gray-400">Flow:</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://evm.flowscan.io/address/${tokenData?.flowAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors font-mono text-xs"
+                        >
+                          {tokenData?.flowAddress?.slice(0, 6)}...{tokenData?.flowAddress?.slice(-4)}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(tokenData?.flowAddress || '')}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        <img src="/hedera-logo.png" alt="Hedera" className="w-3 h-3" />
+                        <span className="text-gray-400">Hedera:</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://hashscan.io/mainnet/address/${tokenData?.hederaAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors font-mono text-xs"
+                        >
+                          {tokenData?.hederaAddress?.slice(0, 6)}...{tokenData?.hederaAddress?.slice(-4)}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(tokenData?.hederaAddress || '')}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-gray-400 text-xs uppercase mb-2">Bonding Curve Addresses</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        <img src="/flow-logo.png" alt="Flow" className="w-3 h-3" />
+                        <span className="text-gray-400">Flow:</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://evm.flowscan.io/address/${tokenData?.flowCurve}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors font-mono text-xs"
+                        >
+                          {tokenData?.flowCurve?.slice(0, 6)}...{tokenData?.flowCurve?.slice(-4)}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(tokenData?.flowCurve || '')}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        <img src="/hedera-logo.png" alt="Hedera" className="w-3 h-3" />
+                        <span className="text-gray-400">Hedera:</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://hashscan.io/mainnet/address/${tokenData?.hederaCurve}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors font-mono text-xs"
+                        >
+                          {tokenData?.hederaCurve?.slice(0, 6)}...{tokenData?.hederaCurve?.slice(-4)}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(tokenData?.hederaCurve || '')}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="border-t border-zinc-800 pt-4">
+                  <p className="text-gray-300">
+                    {tokenData?.description || "Cross-chain meme token powered by bonding curves. Trade seamlessly on Flow and Hedera."}
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Chart */}
-            <PriceChart
-              tokenSymbol="SILENTHILL"
-              currentPrice={0.0145}
-              change24h={3.81}
-            />
+            <div className="relative">
+              <PriceChart
+                tokenSymbol="SILENTHILL"
+                currentPrice={0.0145}
+                change24h={3.81}
+              />
+              {/* Coming Soon Overlay */}
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2">Chart Data Coming Soon</h3>
+                  <p className="text-gray-400">Real-time price tracking will be available shortly</p>
+                </div>
+              </div>
+            </div>
 
-            {/* Comments Section */}
-            <div className="bg-zinc-900 rounded-2xl p-6">
+            {/* Comments Section - Commented out for now */}
+            {/* <div className="bg-zinc-900 rounded-2xl p-6">
               <h2 className="text-lg font-bold mb-4">Comments</h2>
 
-              {/* Comment Input */}
               <div className="flex gap-3 mb-6">
                 <img
                   src="https://api.dicebear.com/7.x/personas/svg?seed=user"
@@ -311,7 +460,6 @@ export default function TokenDetailsPage() {
                 </Button>
               </div>
 
-              {/* Comments List */}
               <div className="space-y-4">
                 {mockComments.map(comment => (
                   <div key={comment.id} className="flex gap-3">
@@ -330,7 +478,7 @@ export default function TokenDetailsPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Right Side - Trading Panel */}
@@ -509,12 +657,6 @@ export default function TokenDetailsPage() {
                     return;
                   }
 
-                  console.log('Trading on chain:', selectedChain.id);
-                  console.log('Token data:', tokenData);
-                  console.log('Curve address:', tokenData?.[`${selectedChain.id}Curve`]);
-                  console.log('Token address:', tokenData?.[`${selectedChain.id}Address`]);
-                  console.log('Active tab:', activeTab);
-                  console.log('Amount:', amount);
 
                   const txAmount = activeTab === "buy"
                     ? (tokenAmount ? Math.floor(parseFloat(tokenAmount)).toString() : "0")
@@ -585,10 +727,9 @@ export default function TokenDetailsPage() {
                         amount: txAmount,
                         user: address
                       })
-                    }).catch(console.error);
+                    }).catch(() => {});
 
                   } catch (error: any) {
-                    console.error('Trade failed:', error);
                     setTxModal({
                       isOpen: true,
                       status: 'error',
