@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { FACTORY_ABI } from '@/lib/contracts';
 
 const FLOW_RPC = "https://mainnet.evm.nodes.onflow.org";
-const HEDERA_RPC = "https://mainnet.hashio.io/api";
+const HEDERA_RPC = "https://lingering-quaint-snowflake.hedera-mainnet.quiknode.pro/9877f9930868999a28c2635f801dc1c8d030d7d5";
 
 export async function POST(req: Request) {
   try {

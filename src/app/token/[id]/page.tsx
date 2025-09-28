@@ -158,7 +158,7 @@ export default function TokenDetailsPage() {
         const { ethers } = await import('ethers');
         const CONTRACTS = {
           flow: { chainId: 747, rpc: "https://mainnet.evm.nodes.onflow.org" },
-          hedera: { chainId: 295, rpc: "https://mainnet.hashio.io/api" }
+          hedera: { chainId: 295, rpc: "https://lingering-quaint-snowflake.hedera-mainnet.quiknode.pro/9877f9930868999a28c2635f801dc1c8d030d7d5" }
         };
 
         const provider = new ethers.providers.JsonRpcProvider(

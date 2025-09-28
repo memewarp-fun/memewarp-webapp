@@ -28,8 +28,8 @@ const hedera = {
     symbol: 'HBAR',
   },
   rpcUrls: {
-    default: { http: ['https://mainnet.hashio.io/api'] },
-    public: { http: ['https://mainnet.hashio.io/api'] },
+    default: { http: ['https://lingering-quaint-snowflake.hedera-mainnet.quiknode.pro/9877f9930868999a28c2635f801dc1c8d030d7d5'] },
+    public: { http: ['https://lingering-quaint-snowflake.hedera-mainnet.quiknode.pro/9877f9930868999a28c2635f801dc1c8d030d7d5'] },
   },
   blockExplorers: {
     default: { name: 'HashScan', url: 'https://hashscan.io/mainnet' },

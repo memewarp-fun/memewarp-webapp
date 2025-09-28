@@ -47,7 +47,7 @@ export async function GET() {
   try {
     console.log('Testing Hedera RPC...');
     const hederaProvider = new ethers.providers.JsonRpcProvider(
-      'https://mainnet.hashio.io/api',
+      'https://lingering-quaint-snowflake.hedera-mainnet.quiknode.pro/9877f9930868999a28c2635f801dc1c8d030d7d5',
       { chainId: 295, name: 'hedera' }
     );
 
