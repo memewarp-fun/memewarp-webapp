@@ -3,11 +3,12 @@ import { prisma } from '@/lib/db';
 
 export async function GET(
   req: Request,
-  { params }: { params: { symbol: string } }
+  { params }: { params: Promise<{ symbol: string }> }
 ) {
   try {
+    const { symbol } = await params;
     const token = await prisma.token.findUnique({
-      where: { id: params.symbol }
+      where: { id: symbol }
     });
 
     if (!token) {

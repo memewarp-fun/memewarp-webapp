@@ -126,9 +126,9 @@ export const CustomConnectButton = () => {
                           Account Details
                         </button>
 
-                        {chain?.blockExplorers?.default?.url && (
+                        {chain?.id && (
                           <a
-                            href={`${chain.blockExplorers.default.url}/address/${account.address}`}
+                            href={`${chain.id === 747 ? 'https://evm.flowscan.io' : 'https://hashscan.io/mainnet'}/address/${account.address}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full px-3 py-2 text-left hover:bg-zinc-800 rounded flex items-center gap-2 text-sm block"

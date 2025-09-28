@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { TokenCard } from "@/components/token-card";
+import { TokenCardWithCurve } from "@/components/token-card-with-curve";
 import Link from "next/link";
 
 const mockTokens = [
@@ -139,18 +139,11 @@ export function TokenLaunches() {
               : token.change24h || '+0.00%';
 
             return (
-              <TokenCard
+              <TokenCardWithCurve
                 key={token.id || token.symbol}
-                id={token.id || token.symbol}
-                name={token.name}
-                symbol={token.symbol || token.id}
-                description={token.description || "A new meme token on dual chains"}
-                mcap={token.marketCapUSD ? `$${(token.marketCapUSD / 1000).toFixed(1)}K` : token.mcap || "$0"}
+                token={token}
                 change24h={change24h}
-                launched={timeSinceLaunch}
-                creator={token.creator?.slice(-6) || token.creator}
-                creatorAddress={token.creator || token.creatorAddress}
-                image={token.imageUrl || token.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${token.symbol}`}
+                timeSinceLaunch={timeSinceLaunch}
               />
             );
           }))}

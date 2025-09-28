@@ -2,7 +2,7 @@
 
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { TokenCard } from "@/components/token-card";
+import { TokenCardWithCurve } from "@/components/token-card-with-curve";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
@@ -18,8 +18,7 @@ export default function TokensPage() {
         setTokens(data);
         setLoading(false);
       })
-      .catch(err => {
-        console.error('Failed to fetch tokens:', err);
+      .catch(() => {
         setLoading(false);
       });
   }, []);
@@ -69,18 +68,11 @@ export default function TokensPage() {
                   : '+0.00%';
 
                 return (
-                  <TokenCard
+                  <TokenCardWithCurve
                     key={token.id}
-                    id={token.id}
-                    name={token.name}
-                    symbol={token.symbol || token.id}
-                    description={token.description || "A new meme token on dual chains"}
-                    mcap={token.marketCapUSD ? `$${(token.marketCapUSD / 1000000).toFixed(1)}M` : "$0"}
+                    token={token}
                     change24h={change24h}
-                    launched={timeSinceLaunch}
-                    creator={token.creator?.slice(-6) || "Unknown"}
-                    creatorAddress={token.creator || "0x0000...0000"}
-                    image={token.imageUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${token.symbol}`}
+                    timeSinceLaunch={timeSinceLaunch}
                   />
                 );
               })

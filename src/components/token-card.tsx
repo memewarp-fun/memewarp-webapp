@@ -9,12 +9,15 @@ interface TokenCardProps {
   name: string;
   symbol: string;
   description: string;
-  mcap: string;
+  mcap?: string; // Made optional for backward compatibility
   change24h: string;
   launched: string;
   creator: string;
   creatorAddress?: string;
   image: string;
+  bondingProgress?: number; // Percentage 0-100
+  flowCurve?: string;
+  hederaCurve?: string;
 }
 
 export function TokenCard({
@@ -27,7 +30,10 @@ export function TokenCard({
   launched,
   creator,
   creatorAddress = "0x1234...5678",
-  image
+  image,
+  bondingProgress = 0,
+  flowCurve,
+  hederaCurve
 }: TokenCardProps) {
   return (
     <Link href={`/token/${id}`}>
@@ -79,17 +85,16 @@ export function TokenCard({
             {description}
           </p>
 
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="text-[10px] text-gray-500 uppercase">MCap</p>
-              <p className="text-sm font-bold text-green-500">{mcap}</p>
-            </div>
-            <div className="h-4 w-[1px] bg-zinc-700" />
+          <div className="flex items-center gap-2">
             <div className="flex-1">
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-[10px] text-gray-500 uppercase">Bonding Curve</p>
+                <p className="text-[10px] text-gray-400">{bondingProgress.toFixed(1)}%</p>
+              </div>
               <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full"
-                  style={{ width: `${Math.min(parseFloat(change24h) / 2, 100)}%` }}
+                  className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(bondingProgress, 100)}%` }}
                 />
               </div>
             </div>
