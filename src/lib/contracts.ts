@@ -6,7 +6,7 @@ export const CONTRACTS = {
   },
   hedera: {
     chainId: 295,
-    rpc: "https://mainnet.hashio.io/api",
+    rpc: "https://rpc.hashdemo.com",
     factory: process.env.NEXT_PUBLIC_HEDERA_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000"
   }
 }
