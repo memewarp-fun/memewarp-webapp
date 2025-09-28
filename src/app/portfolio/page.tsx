@@ -53,7 +53,7 @@ export default function PortfolioPage() {
     fetch('/api/tokens')
       .then(res => res.json())
       .then(data => setTokens(data))
-      .catch(console.error);
+      .catch(() => {});
   }, []);
 
   // Calculate user-specific stats
@@ -170,7 +170,6 @@ export default function PortfolioPage() {
       await fetch('/api/sync', { method: 'POST' });
 
     } catch (error: any) {
-      console.error('Transfer failed:', error);
       setCrossChainModal(prev => ({
         ...prev,
         status: "error",

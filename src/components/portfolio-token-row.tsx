@@ -37,7 +37,7 @@ export function PortfolioTokenRow({
   const totalBalance = flowBalance + hederaBalance;
 
   React.useEffect(() => {
-    getPrices().then(setUsdPrices).catch(console.error);
+    getPrices().then(setUsdPrices).catch(() => {});
   }, []);
 
   const flowValueInFlow = flowBalance * flowCurve.currentPrice;
