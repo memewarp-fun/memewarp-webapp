@@ -126,7 +126,7 @@ export function PortfolioTokenRow({
           >
             Trade
           </Button>
-          {flowBalance > 0 && hederaBalance === 0 && (
+          {flowBalance > 0 && (
             <Button
               size="sm"
               variant="outline"
@@ -138,7 +138,7 @@ export function PortfolioTokenRow({
               → Hedera
             </Button>
           )}
-          {hederaBalance > 0 && flowBalance === 0 && (
+          {hederaBalance > 0 && (
             <Button
               size="sm"
               variant="outline"

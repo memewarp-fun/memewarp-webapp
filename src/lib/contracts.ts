@@ -46,6 +46,25 @@ export const FACTORY_ABI = [
     ],
     "name": "MemeCreated",
     "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "relayer", "type": "address" }
+    ],
+    "name": "setRelayer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "memeId", "type": "uint256" },
+      { "internalType": "address", "name": "relayer", "type": "address" }
+    ],
+    "name": "setCurveRelayer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ];
 
@@ -58,7 +77,7 @@ export const BONDING_CURVE_ABI = [
   "function getSupply() view returns (uint256)",
   "function state() view returns (uint256 localSupply, uint256 otherChainSupply, uint256 globalSupply, uint256 reserveBalance, bool isGraduated, address pool)",
   "function burnForCrossChain(address user, uint256 amount, address recipient, uint256 targetChainId)",
-  "function mintFromCrossChain(address recipient, uint256 amount, bytes32 burnTxHash)",
+  "function mintFromCrossChain(address toUser, uint256 amount, address fromAddress, uint256 fromChainId)",
   "event Buy(address indexed buyer, uint256 amount, uint256 cost)",
   "event Sell(address indexed seller, uint256 amount, uint256 proceeds)",
   "event CrossChainBurn(address indexed from, uint256 amount, uint256 targetChainId)",

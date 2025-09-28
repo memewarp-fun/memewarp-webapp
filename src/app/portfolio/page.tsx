@@ -12,6 +12,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useBondingCurve } from "@/hooks/useBondingCurve";
 import { TransferModal } from "@/components/transfer-modal";
 import { PortfolioTokenRow } from "@/components/portfolio-token-row";
+import { CrossChainModal } from "@/components/cross-chain-modal";
 import React from "react";
 
 interface TokenHolding {
@@ -33,6 +34,17 @@ export default function PortfolioPage() {
     isOpen: boolean;
     holding: TokenHolding | null;
   }>({ isOpen: false, holding: null });
+  const [crossChainModal, setCrossChainModal] = useState<{
+    isOpen: boolean;
+    status: "burning" | "minting" | "success" | "error";
+    burnTxHash?: string;
+    mintTxHash?: string;
+    error?: string;
+    amount?: string;
+    token?: string;
+    sourceChain?: string;
+    targetChain?: string;
+  }>({ isOpen: false, status: "burning" });
   const [tokens, setTokens] = useState<any[]>([]);
   const [userBalances, setUserBalances] = useState<{[key: string]: {flow: number, hedera: number, value: number}}>({});
   const [totalValue, setTotalValue] = useState(0);
@@ -92,6 +104,25 @@ export default function PortfolioPage() {
 
     const targetChain = holding.chain === 'flow' ? 'hedera' : 'flow';
 
+    const token = tokens.find(t => t.id === holding.id);
+    const curveAddress = token?.[`${holding.chain}Curve`];
+    const targetCurveAddress = token?.[`${targetChain}Curve`];
+
+    if (!curveAddress) {
+      alert('Cannot find bonding curve address for this token');
+      setIsTransferring({ ...isTransferring, [holding.id]: false });
+      return;
+    }
+
+    setCrossChainModal({
+      isOpen: true,
+      status: "burning",
+      amount,
+      token: holding.symbol,
+      sourceChain: holding.chain,
+      targetChain
+    });
+
     try {
       const response = await fetch('/api/transfers', {
         method: 'POST',
@@ -101,19 +132,50 @@ export default function PortfolioPage() {
           to: targetChain,
           amount,
           tokenSymbol: holding.symbol,
-          userAddress: address
+          userAddress: address,
+          curveAddress,
+          targetCurveAddress,
+          tokenId: holding.id
         })
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error('Transfer failed');
+        throw new Error(result.error || 'Transfer failed');
+      }
+
+      if (result.burnTxHash) {
+        setCrossChainModal(prev => ({
+          ...prev,
+          status: "minting",
+          burnTxHash: result.burnTxHash
+        }));
+      }
+
+      if (result.mintTxHash) {
+        setCrossChainModal(prev => ({
+          ...prev,
+          status: "success",
+          mintTxHash: result.mintTxHash
+        }));
+      } else if (result.status === 'burn-complete') {
+        setCrossChainModal(prev => ({
+          ...prev,
+          status: "success",
+          burnTxHash: result.burnTxHash
+        }));
       }
 
       await fetch('/api/sync', { method: 'POST' });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Transfer failed:', error);
-      alert('Transfer failed. Please try again.');
+      setCrossChainModal(prev => ({
+        ...prev,
+        status: "error",
+        error: error.message || 'Transfer failed. Please try again.'
+      }));
     }
 
     setIsTransferring({ ...isTransferring, [holding.id]: false });
@@ -292,6 +354,19 @@ export default function PortfolioPage() {
           balance={transferModal.holding.balance}
         />
       )}
+
+      <CrossChainModal
+        isOpen={crossChainModal.isOpen}
+        onClose={() => setCrossChainModal({ ...crossChainModal, isOpen: false })}
+        status={crossChainModal.status}
+        burnTxHash={crossChainModal.burnTxHash}
+        mintTxHash={crossChainModal.mintTxHash}
+        error={crossChainModal.error}
+        amount={crossChainModal.amount}
+        token={crossChainModal.token}
+        sourceChain={crossChainModal.sourceChain}
+        targetChain={crossChainModal.targetChain}
+      />
     </div>
   );
 }

@@ -156,6 +156,44 @@ export async function POST(req: Request) {
           hederaEvent: hederaEvent?.args
         });
 
+        const flowMemeId = flowEvent?.args?.memeId || flowEvent?.args?.[0];
+        const hederaMemeId = hederaEvent?.args?.memeId || hederaEvent?.args?.[0];
+
+        console.log('Extracted memeIds:', {
+          flowMemeId: flowMemeId?.toString(),
+          hederaMemeId: hederaMemeId?.toString()
+        });
+
+        sendUpdate({ status: 'setting-relayer', message: 'Setting up cross-chain relayer...' });
+
+        if (flowMemeId) {
+          try {
+            console.log('Setting Flow relayer for memeId:', flowMemeId.toString(), 'relayer:', relayerWallet.address);
+            const setRelayerTx = await flowFactory.setCurveRelayer(flowMemeId, relayerWallet.address);
+            await setRelayerTx.wait();
+            console.log('✓ Flow relayer set successfully for memeId:', flowMemeId.toString());
+          } catch (error: any) {
+            console.error('✗ Failed to set Flow relayer:', error.message);
+            sendUpdate({ status: 'warning', message: `Flow relayer setup failed: ${error.message}` });
+          }
+        } else {
+          console.log('No Flow memeId found in event');
+        }
+
+        if (hederaMemeId) {
+          try {
+            console.log('Setting Hedera relayer for memeId:', hederaMemeId.toString(), 'relayer:', relayerWallet.address);
+            const setRelayerTx = await hederaFactory.setCurveRelayer(hederaMemeId, relayerWallet.address);
+            await setRelayerTx.wait();
+            console.log('✓ Hedera relayer set successfully for memeId:', hederaMemeId.toString());
+          } catch (error: any) {
+            console.error('✗ Failed to set Hedera relayer:', error.message);
+            sendUpdate({ status: 'warning', message: `Hedera relayer setup failed: ${error.message}` });
+          }
+        } else {
+          console.log('No Hedera memeId found in event');
+        }
+
         const tokenData = {
           id: symbol,
           name,

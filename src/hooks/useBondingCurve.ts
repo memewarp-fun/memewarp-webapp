@@ -50,7 +50,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
         setSupply(parseFloat(ethers.utils.formatEther(supply || 0)));
         setCachedState(state);
       } catch (error) {
-        console.error('Failed to fetch bonding curve data:', error);
         setCurrentPrice(0.000001);
         setSupply(0);
       }
@@ -64,12 +63,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
   const buy = async (amount: string) => {
     if (!address) throw new Error('Wallet not connected');
 
-    console.log('Buy function called with:');
-    console.log('- Curve address:', curveAddress);
-    console.log('- Chain:', chain);
-    console.log('- Amount:', amount);
-    console.log('- User address:', address);
-
     // Make sure we're on the right network first
     const expectedChainId = CONTRACTS[chain].chainId;
 
@@ -80,7 +73,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
       });
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error: any) {
-      console.error('Failed to switch network:', error);
       throw new Error(`Please switch to ${chain === 'flow' ? 'Flow' : 'Hedera'} network`);
     }
 
@@ -94,11 +86,9 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
     );
 
     const network = await provider.getNetwork();
-    console.log('- Connected network:', network);
 
     const signer = provider.getSigner();
     const amountWei = ethers.utils.parseEther(amount);
-    console.log('- Amount in wei:', amountWei.toString());
 
     // Just use the contract directly - we know this works for getQuote
     const curve = new ethers.Contract(curveAddress, BONDING_CURVE_ABI, provider);
@@ -106,11 +96,9 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
     try {
       // Get quote using the same method that works in getQuote
       const quote = await curve.calculateBuyQuote(amountWei);
-      console.log('- Quote response:', quote);
 
       // Quote returns [price, amount, cost, protocolFee, creatorFee, netAmount]
       const netAmount = quote[5] || quote.netAmount;
-      console.log('- Net amount (total to pay):', ethers.utils.formatEther(netAmount));
 
       // Now send the buy transaction with signer
       const curveWithSigner = curve.connect(signer);
@@ -119,13 +107,9 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
         gasLimit: 300000
       });
 
-      console.log('- Transaction hash:', tx.hash);
       return tx.wait();
     } catch (error: any) {
-      console.error('Buy failed:', error);
-
       // Fallback: try sending raw transaction
-      console.log('Trying raw transaction...');
       const iface = new ethers.utils.Interface(BONDING_CURVE_ABI);
       const buyData = iface.functions['buy(uint256)'].encode([amountWei]);
 
@@ -146,11 +130,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
   const sell = async (amount: string) => {
     if (!address) throw new Error('Wallet not connected');
 
-    console.log('Sell function called with:');
-    console.log('- Curve address:', curveAddress);
-    console.log('- Chain:', chain);
-    console.log('- Amount:', amount);
-
     // Make sure we're on the right network first
     const expectedChainId = CONTRACTS[chain].chainId;
 
@@ -161,7 +140,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
       });
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error: any) {
-      console.error('Failed to switch network:', error);
       throw new Error(`Please switch to ${chain === 'flow' ? 'Flow' : 'Hedera'} network`);
     }
 
@@ -175,7 +153,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
     );
 
     const network = await provider.getNetwork();
-    console.log('- Connected network:', network);
 
     const signer = provider.getSigner();
 
@@ -202,8 +179,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
       const quote = type === 'buy'
         ? await curve.calculateBuyQuote(amountWei)
         : await curve.calculateSellQuote(amountWei);
-
-      console.log('Quote response:', quote);
 
       // Quote returns [price, amount, cost, protocolFee, creatorFee, netAmount]
       // or for sell: [price, amount, proceeds, protocolFee, creatorFee, netAmount]
@@ -243,7 +218,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
         creatorFee: ethers.utils.formatEther(creatorFee)
       };
     } catch (error) {
-      console.error('Failed to get quote:', error);
       return null;
     }
   };
@@ -289,14 +263,21 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
 
       // Use a more intelligent starting point based on current price
       let estimatedTokens;
-      if (currentSupply && ethers.utils.bigNumberify(currentSupply).gt(0)) {
-        // If we have supply, use current price as reference
-        const reserves = state.reserveBalance || state[3];
+      const reserves = state.reserveBalance || state[3];
+
+      if (currentSupply && ethers.utils.bigNumberify(currentSupply).gt(0) && ethers.utils.bigNumberify(reserves).gt(0)) {
+        // If we have both supply and reserves, calculate average price
         const avgPrice = ethers.utils.bigNumberify(reserves).mul(ethers.utils.parseEther("1")).div(currentSupply);
-        estimatedTokens = payment.mul(ethers.utils.parseEther("1")).div(avgPrice.mul(2)); // Start conservative
+        if (avgPrice.gt(0)) {
+          estimatedTokens = payment.mul(ethers.utils.parseEther("1")).div(avgPrice.mul(2));
+        } else {
+          // Fallback if avgPrice is somehow 0
+          estimatedTokens = payment.mul(10000);
+        }
       } else {
-        // No supply yet, start with base calculation
-        estimatedTokens = payment.mul(1000); // Rough estimate for initial purchases
+        // No supply or no reserves yet (empty bonding curve)
+        // Use a higher multiplier for initial purchases on empty curves
+        estimatedTokens = payment.mul(100000);
       }
 
       // Now refine with a few iterations
@@ -352,7 +333,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
           }
         }
       } catch (error) {
-        console.error('Quote failed for estimate:', error);
         return null;
       }
 
@@ -378,7 +358,6 @@ export function useBondingCurve(curveAddress: string, chain: 'flow' | 'hedera') 
 
       return null;
     } catch (error) {
-      console.error('Failed to calculate tokens for payment:', error);
       return null;
     }
   };
