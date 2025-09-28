@@ -6,7 +6,7 @@ export const CONTRACTS = {
   },
   hedera: {
     chainId: 295,
-    rpc: "https://rpc.hashdemo.com",
+    rpc: "https://lingering-quaint-snowflake.hedera-mainnet.quiknode.pro/9877f9930868999a28c2635f801dc1c8d030d7d5",
     factory: process.env.NEXT_PUBLIC_HEDERA_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000"
   }
 }
